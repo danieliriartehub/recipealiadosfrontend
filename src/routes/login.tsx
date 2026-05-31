@@ -2,9 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useMerchantAuth } from "@/lib/auth";
+import { signIn } from "@/lib/auth";
 import { Eye, EyeOff, Loader2, Recycle, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Iniciar sesión — Portal de Aliados" }] }),
@@ -14,31 +14,61 @@ export const Route = createFileRoute("/login")({
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 function LoginPage() {
-  const { signIn } = useMerchantAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [attempts, setAttempts] = useState(0);
+  const [blockedUntil, setBlockedUntil] = useState<Date | null>(null);
+  const [countdown, setCountdown] = useState(0);
 
-  const canSubmit = isValidEmail(email) && password.length > 0 && !loading;
+  // Countdown de bloqueo
+  useEffect(() => {
+    if (!blockedUntil) return;
+    const interval = setInterval(() => {
+      const diff = Math.max(
+        0,
+        Math.round((blockedUntil.getTime() - Date.now()) / 1000)
+      );
+      setCountdown(diff);
+      if (diff === 0) {
+        setBlockedUntil(null);
+        setAttempts(0);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [blockedUntil]);
 
-  const submit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
+    if (blockedUntil) return;
     setLoading(true);
+    setError(null);
 
-    const { error } = await signIn(email, password);
+    const { role, error: authError } = await signIn(email, password);
 
-    if (error) {
+    if (authError) {
+      const next = attempts + 1;
+      setAttempts(next);
+      if (next >= 5) setBlockedUntil(new Date(Date.now() + 5 * 60 * 1000));
+      setError(
+        authError === "Invalid login credentials"
+          ? "Correo o contraseña incorrectos."
+          : authError
+      );
       setLoading(false);
-      setErrorMsg(error);
       return;
     }
 
-    navigate({ to: "/dashboard", replace: true });
+    if (role === "operador") {
+      navigate({ to: "/dashboard/operador", replace: true });
+    } else {
+      navigate({ to: "/dashboard", replace: true });
+    }
+    setLoading(false);
   };
 
   return (
@@ -46,7 +76,7 @@ function LoginPage() {
       title="Bienvenido de vuelta"
       subtitle="Inicia sesión para gestionar tu catálogo y perfil."
     >
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1">
           <Field label="Correo de la empresa">
             <Input
@@ -62,6 +92,7 @@ function LoginPage() {
                     : null
                 );
               }}
+              disabled={!!blockedUntil}
               required
             />
           </Field>
@@ -76,11 +107,12 @@ function LoginPage() {
               type={showPassword ? "text" : "password"}
               placeholder="••••••••"
               value={password}
-              onChange={(e) => {
-                const sanitized = e.target.value.replace(/[<>'"`;\\]/g, "");
-                setPassword(sanitized);
-              }}
+              onChange={(e) =>
+                setPassword(e.target.value.replace(/[<>'"`;\\]/g, ""))
+              }
               maxLength={72}
+              autoComplete="current-password"
+              disabled={!!blockedUntil}
               className="pr-10"
               required
             />
@@ -90,25 +122,42 @@ function LoginPage() {
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               tabIndex={-1}
             >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
             </button>
           </div>
         </Field>
 
-        {errorMsg && (
-          <p className="text-sm text-destructive">{errorMsg}</p>
+        {/* Bloqueo por intentos */}
+        {blockedUntil && (
+          <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-center">
+            <p className="text-sm font-semibold text-red-700">
+              Demasiados intentos
+            </p>
+            <p className="text-xs text-red-500 mt-1">
+              Espera {Math.floor(countdown / 60)}:
+              {String(countdown % 60).padStart(2, "0")}
+            </p>
+          </div>
+        )}
+
+        {error && !blockedUntil && (
+          <p className="text-xs text-red-600 font-medium">{error}</p>
         )}
 
         <Button
           type="submit"
           className="w-full bg-primary hover:bg-primary/90"
           size="lg"
-          disabled={!canSubmit}
+          disabled={!email || !password || loading || !!blockedUntil}
         >
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Ingresando…
+              Verificando...
             </>
           ) : (
             "Iniciar sesión"
@@ -116,13 +165,17 @@ function LoginPage() {
         </Button>
       </form>
 
+      <p className="text-center text-xs text-muted-foreground mt-6">
+        ¿Problemas para ingresar? Contacta al administrador.
+      </p>
+
       {/* Acceso operadores */}
       <div className="relative my-4">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-200" />
+          <div className="w-full border-t border-gray-100" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-white px-3 text-xs text-gray-400">
+          <span className="bg-background px-3 text-xs text-muted-foreground">
             ¿Eres personal USIL?
           </span>
         </div>
@@ -130,21 +183,23 @@ function LoginPage() {
 
       <button
         type="button"
-        onClick={() => navigate({ to: '/login/operador' })}
-        className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-primary/30 bg-primary/5 py-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
+        onClick={() => navigate({ to: "/login/operador" })}
+        className="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-primary/20 bg-primary/5 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
       >
         <ShieldCheck className="h-4 w-4" />
-        Ingreso Operadores
+        Ingreso Operadores de Centro
       </button>
-
-      <p className="text-center text-sm text-muted-foreground mt-6">
-        ¿Problemas para ingresar? Contacta al administrador.
-      </p>
     </AuthLayout>
   );
 }
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
       <Label className="text-sm">{label}</Label>
@@ -177,11 +232,13 @@ export function AuthLayout({
         </Link>
         <div className="relative z-10">
           <p className="text-3xl font-semibold leading-snug max-w-sm">
-            "Conectamos con cientos de estudiantes USIL en nuestra primera semana como aliados Recipe."
+            "Conectamos con cientos de estudiantes USIL en nuestra primera
+            semana como aliados Recipe."
           </p>
-          <p className="mt-4 text-primary-foreground/80">— María, Cafetería Campus USIL</p>
+          <p className="mt-4 text-primary-foreground/80">
+            — María, Cafetería Campus USIL
+          </p>
         </div>
-        {/* Acento ámbar */}
         <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-amber-400/25 rounded-full blur-3xl" />
         <div className="absolute -top-20 -left-20 w-72 h-72 bg-amber-300/15 rounded-full blur-3xl" />
       </div>

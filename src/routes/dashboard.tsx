@@ -1,8 +1,9 @@
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { usePortal } from "@/lib/portal-store";
-import { useMerchantAuth } from "@/lib/auth";
+import { useMerchantAuth, getUserRole } from "@/lib/auth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
@@ -34,6 +35,20 @@ function DashboardLayout() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+
+  // Verificar sesión y rol al montar
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) {
+        navigate({ to: '/login', replace: true })
+        return
+      }
+      const role = await getUserRole(session.user.id)
+      if (role !== 'aliado') {
+        navigate({ to: '/login', replace: true })
+      }
+    })
+  }, [])
 
   useEffect(() => setOpen(false), [pathname]);
 

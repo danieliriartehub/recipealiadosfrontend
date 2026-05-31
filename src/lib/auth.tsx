@@ -3,6 +3,47 @@ import { useNavigate } from '@tanstack/react-router'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
+// ── Roles y funciones standalone ─────────────────────────────────
+
+export type UserRole = 'aliado' | 'operador' | null
+
+export async function getUserRole(userId: string): Promise<UserRole> {
+  const { data: validator } = await supabase
+    .from('validators')
+    .select('id, is_active')
+    .eq('id', userId)
+    .single()
+  if (validator?.is_active) return 'operador'
+
+  const { data: merchant } = await supabase
+    .from('merchant_users')
+    .select('id, is_active')
+    .eq('id', userId)
+    .single()
+  if (merchant?.is_active) return 'aliado'
+
+  return null
+}
+
+export async function signIn(
+  email: string,
+  password: string,
+): Promise<{ role: UserRole; error: string | null }> {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) return { role: null, error: error.message }
+
+  const role = await getUserRole(data.user.id)
+  if (!role) {
+    await supabase.auth.signOut()
+    return { role: null, error: 'No tienes acceso a este portal.' }
+  }
+  return { role, error: null }
+}
+
+export async function signOut() {
+  await supabase.auth.signOut()
+}
+
 interface MerchantPartner {
   id: string
   name: string

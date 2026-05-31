@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { signIn, getUserRole } from '@/lib/auth'
 import { Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
 
 export const Route = createFileRoute('/login/operador')({
@@ -18,16 +19,12 @@ function OperadorLogin() {
   const [blockedUntil, setBlockedUntil] = useState<Date | null>(null)
   const [countdown, setCountdown] = useState(0)
 
-  // Verificar si ya hay sesión activa de operador
+  // Redirigir si ya hay sesión activa de operador
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) return
-      const { data } = await supabase
-        .from('validators')
-        .select('id')
-        .eq('id', session.user.id)
-        .single()
-      if (data) navigate({ to: '/dashboard/operador', replace: true })
+      const role = await getUserRole(session.user.id)
+      if (role === 'operador') navigate({ to: '/dashboard/operador', replace: true })
     })
   }, [])
 
@@ -54,41 +51,28 @@ function OperadorLogin() {
     setLoading(true)
     setError(null)
 
-    // 1. Autenticar con Supabase Auth
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { role, error: authError } = await signIn(email, password)
 
     if (authError) {
-      const newAttempts = attempts + 1
-      setAttempts(newAttempts)
-      if (newAttempts >= 5) {
-        setBlockedUntil(new Date(Date.now() + 5 * 60 * 1000))
-      }
-      setError('Correo o contraseña incorrectos')
+      const next = attempts + 1
+      setAttempts(next)
+      if (next >= 5) setBlockedUntil(new Date(Date.now() + 5 * 60 * 1000))
+      setError(
+        authError === 'Invalid login credentials'
+          ? 'Correo o contraseña incorrectos.'
+          : authError
+      )
       setLoading(false)
       return
     }
 
-    // 2. Verificar que es un validador usando la función de Supabase
-    const { data: validatorData, error: roleError } = await supabase.rpc(
-      'validator_login',
-      { p_user_id: data.user.id }
-    )
-
-    if (roleError) {
+    if (role !== 'operador') {
       await supabase.auth.signOut()
-      if (roleError.message.includes('desactivada')) {
-        setError('Tu cuenta está desactivada. Contacta al administrador.')
-      } else {
-        setError('No tienes acceso a este portal.')
-      }
+      setError('No tienes acceso a este portal.')
       setLoading(false)
       return
     }
 
-    // 3. Login exitoso → ir al dashboard de operador
     navigate({ to: '/dashboard/operador', replace: true })
     setLoading(false)
   }
@@ -97,11 +81,10 @@ function OperadorLogin() {
   const canSubmit = email && password.length >= 6 && !loading && !isBlocked
 
   return (
-    /* 1. FONDO: degradado verde oscuro */
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-green-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
 
-        {/* 4. BADGE identificador — no existe en login de aliados */}
+        {/* Badge identificador */}
         <div className="flex justify-center mb-4">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 border border-white/30 px-3 py-1 text-xs font-bold text-white">
             <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
@@ -109,20 +92,18 @@ function OperadorLogin() {
           </span>
         </div>
 
-        {/* 3. HEADER: ícono y textos blancos */}
+        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-white/20 border-2 border-white/40 mb-4">
             <ShieldCheck className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">
-            Portal Operadores
-          </h1>
+          <h1 className="text-2xl font-bold text-white">Portal Operadores</h1>
           <p className="text-sm text-white/70 mt-1">
             Centros de acopio · Campus USIL
           </p>
         </div>
 
-        {/* 2. CARD: semitransparente con borde blanco */}
+        {/* Card */}
         <div className="bg-white/95 backdrop-blur rounded-3xl shadow-xl border border-white/50 p-8">
 
           {/* Bloqueo por intentos */}
@@ -142,8 +123,7 @@ function OperadorLogin() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-
-            {/* Email — 5. inputs sin cambio (card blanca) */}
+            {/* Email */}
             <div>
               <label className="text-sm font-medium text-gray-700">
                 Correo institucional
@@ -195,7 +175,7 @@ function OperadorLogin() {
               <p className="text-xs text-red-600 font-medium">{error}</p>
             )}
 
-            {/* 6. BOTÓN SUBMIT: blanco con texto verde (invertido vs aliados) */}
+            {/* Submit: blanco con texto verde */}
             <button
               type="submit"
               disabled={!canSubmit}
@@ -205,19 +185,18 @@ function OperadorLogin() {
             </button>
           </form>
 
-          {/* 8. Texto pie — sin cambio (card blanca) */}
           <p className="mt-6 text-center text-xs text-gray-400">
             Acceso exclusivo para operadores autorizados.
             <br />Cuentas gestionadas por administración USIL.
           </p>
         </div>
 
-        {/* 7. BOTÓN VOLVER: visible sobre fondo verde */}
+        {/* Volver */}
         <button
           onClick={() => navigate({ to: '/login' })}
           className="mt-4 flex items-center gap-1 mx-auto text-xs text-white/60 hover:text-white"
         >
-          <ArrowLeft className="h-3 w-3" /> Volver al login de aliados
+          <ArrowLeft className="h-3 w-3" /> Volver al portal de aliados
         </button>
       </div>
     </div>
