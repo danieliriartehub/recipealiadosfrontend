@@ -75,7 +75,14 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
   async function signIn(email: string, password: string): Promise<{ error: string | null }> {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error: error?.message ?? null }
+    if (error) {
+      if (error.message === 'Invalid login credentials')
+        return { error: 'Correo o contraseña incorrectos' }
+      if (error.message === 'Email not confirmed')
+        return { error: 'Cuenta pendiente de activación' }
+      return { error: error.message }
+    }
+    return { error: null }
   }
 
   async function signOut(): Promise<void> {

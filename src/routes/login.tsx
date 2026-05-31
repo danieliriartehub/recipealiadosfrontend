@@ -11,14 +11,19 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
 function LoginPage() {
   const { signIn } = useMerchantAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const canSubmit = isValidEmail(email) && password.length > 0 && !loading;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,11 +34,7 @@ function LoginPage() {
 
     if (error) {
       setLoading(false);
-      if (error === "Invalid login credentials") {
-        setErrorMsg("Correo o contraseña incorrectos");
-      } else {
-        setErrorMsg(error);
-      }
+      setErrorMsg(error);
       return;
     }
 
@@ -46,15 +47,29 @@ function LoginPage() {
       subtitle="Inicia sesión para gestionar tu catálogo y perfil."
     >
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Correo de la empresa">
-          <Input
-            type="email"
-            placeholder="hola@miempresa.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </Field>
+        <div className="space-y-1">
+          <Field label="Correo de la empresa">
+            <Input
+              type="email"
+              placeholder="hola@miempresa.com"
+              value={email}
+              onChange={(e) => {
+                const sanitized = e.target.value.replace(/[<>'"`;\\]/g, "");
+                setEmail(sanitized);
+                setEmailError(
+                  sanitized && !isValidEmail(sanitized)
+                    ? "Ingresa un correo válido"
+                    : null
+                );
+              }}
+              required
+            />
+          </Field>
+          {emailError && (
+            <p className="text-xs text-destructive">{emailError}</p>
+          )}
+        </div>
+
         <Field label="Contraseña">
           <div className="relative">
             <Input
@@ -84,7 +99,12 @@ function LoginPage() {
           <p className="text-sm text-destructive">{errorMsg}</p>
         )}
 
-        <Button type="submit" className="w-full" size="lg" disabled={loading}>
+        <Button
+          type="submit"
+          className="w-full bg-primary hover:bg-primary/90"
+          size="lg"
+          disabled={!canSubmit}
+        >
           {loading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -122,6 +142,7 @@ export function AuthLayout({
 }) {
   return (
     <div className="min-h-screen grid md:grid-cols-2">
+      {/* Panel izquierdo — gradiente verde con acentos ámbar */}
       <div
         className="hidden md:flex flex-col justify-between p-10 text-primary-foreground relative overflow-hidden"
         style={{ background: "var(--gradient-primary)" }}
@@ -138,10 +159,13 @@ export function AuthLayout({
           </p>
           <p className="mt-4 text-primary-foreground/80">— María, Cafetería Campus USIL</p>
         </div>
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-accent/30 rounded-full blur-3xl" />
-        <div className="absolute -top-20 -left-20 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
+        {/* Acento ámbar */}
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-amber-400/25 rounded-full blur-3xl" />
+        <div className="absolute -top-20 -left-20 w-72 h-72 bg-amber-300/15 rounded-full blur-3xl" />
       </div>
-      <div className="flex items-center justify-center p-6 md:p-10 bg-background">
+
+      {/* Panel derecho — fondo blanco */}
+      <div className="flex items-center justify-center p-6 md:p-10 bg-white">
         <div className="w-full max-w-sm">
           <Link to="/" className="md:hidden flex items-center gap-2 font-semibold mb-8">
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
