@@ -43,3 +43,57 @@ export async function updateMerchantPartner(
 ) {
   return supabase.from('merchant_partners').update(data).eq('id', id)
 }
+
+// ── Operador / Validador ──────────────────────────────────────────
+
+export async function validateQrForOperator(params: {
+  token: string
+  validatorId: string
+  centerId: string
+}) {
+  const { data, error } = await supabase.rpc('validate_qr_for_operator', {
+    p_token:        params.token,
+    p_validator_id: params.validatorId,
+    p_center_id:    params.centerId,
+  })
+  if (error) throw error
+  return data as {
+    valid: boolean
+    error?: string
+    user_id?: string
+    full_name?: string
+    qr_code?: string
+    points?: number
+    center_id?: string
+    validated_at?: string
+  }
+}
+
+export async function registerRecyclingDelivery(params: {
+  token: string
+  validatorId: string
+  centerId: string
+  material: string
+  kg: number
+}) {
+  const { data, error } = await supabase.rpc('register_recycling_delivery', {
+    p_token:        params.token,
+    p_validator_id: params.validatorId,
+    p_center_id:    params.centerId,
+    p_material:     params.material,
+    p_kg:           params.kg,
+  })
+  if (error) throw error
+  return data as {
+    success: boolean
+    error?: string
+    recycling_id?: string
+    full_name?: string
+    material?: string
+    kg?: number
+    points_earned?: number
+    co2_saved_kg?: number
+    new_balance?: number
+    registered_at?: string
+  }
+}
