@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LoginOperadorRouteImport } from './routes/login_.operador'
+import { Route as DashboardOperadorRouteImport } from './routes/dashboard_.operador'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
@@ -26,6 +28,16 @@ const RegisterRoute = RegisterRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginOperadorRoute = LoginOperadorRouteImport.update({
+  id: '/login/operador',
+  path: '/login/operador',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardOperadorRoute = DashboardOperadorRouteImport.update({
+  id: '/dashboard/operador',
+  path: '/dashboard/operador',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -64,6 +76,8 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/login/operador': typeof LoginOperadorRoute
+  '/dashboard/operador': typeof DashboardOperadorRoute
   '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
@@ -73,6 +87,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/login/operador': typeof LoginOperadorRoute
+  '/dashboard/operador': typeof DashboardOperadorRoute
   '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
@@ -84,6 +100,8 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/login/operador': typeof LoginOperadorRoute
+  '/dashboard/operador': typeof DashboardOperadorRoute
   '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
@@ -96,6 +114,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/login/operador'
+    | '/dashboard/operador'
     | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
@@ -105,6 +125,8 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/login/operador'
+    | '/dashboard/operador'
     | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
@@ -115,6 +137,8 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/login/operador'
+    | '/dashboard/operador'
     | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
@@ -126,6 +150,8 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  LoginOperadorRoute: typeof LoginOperadorRoute
+  DashboardOperadorRoute: typeof DashboardOperadorRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -142,6 +168,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login/operador': {
+      id: '/login/operador'
+      path: '/login/operador'
+      fullPath: '/login/operador'
+      preLoaderRoute: typeof LoginOperadorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/operador': {
+      id: '/dashboard/operador'
+      path: '/dashboard/operador'
+      fullPath: '/dashboard/operador'
+      preLoaderRoute: typeof DashboardOperadorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -212,6 +252,8 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  LoginOperadorRoute: LoginOperadorRoute,
+  DashboardOperadorRoute: DashboardOperadorRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
