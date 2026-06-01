@@ -1,69 +1,82 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { CheckCircle2, LogOut, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, LogOut } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { validateQrForOperator, registerRecyclingDelivery } from '@/lib/api'
+import {
+  validateQrForOperator,
+  createDeliverySession,
+  addDeliveryItem,
+  removeDeliveryItem,
+  getSessionSummary,
+  confirmDelivery,
+} from '@/lib/api'
 import { QrScanner } from '@/components/QrScanner'
 
 export const Route = createFileRoute('/dashboard/operador')({
   component: OperadorDashboard,
 })
 
-type Step = 'scan' | 'confirm' | 'success'
+type Step = 'cart' | 'scan' | 'confirm' | 'success'
 
 interface ValidatorInfo {
+  id: string
   center_id: string
   full_name: string
   centers: { name: string } | null
 }
 
-const POINTS_PER_KG: Record<string, number> = {
-  plastico: 50,
-  papel: 30,
-  vidrio: 40,
-  aluminio: 80,
-}
-
-const MATERIALS = [
-  { value: 'plastico', label: 'Plástico',  emoji: '🧴', pts: 50 },
-  { value: 'papel',    label: 'Papel',     emoji: '📄', pts: 30 },
-  { value: 'vidrio',   label: 'Vidrio',    emoji: '🍾', pts: 40 },
-  { value: 'aluminio', label: 'Aluminio',  emoji: '🥫', pts: 80 },
+const MATERIALS_CONFIG = [
+  { value: 'plastico', label: 'Plástico', emoji: '🧴',
+    color: 'bg-blue-50 border-blue-200 text-blue-700',    pts: 50, co2: 1.50, trees: 0.069 },
+  { value: 'papel',    label: 'Papel',    emoji: '📄',
+    color: 'bg-yellow-50 border-yellow-200 text-yellow-700', pts: 30, co2: 1.10, trees: 0.051 },
+  { value: 'vidrio',   label: 'Vidrio',   emoji: '🍾',
+    color: 'bg-green-50 border-green-200 text-green-700',  pts: 40, co2: 0.30, trees: 0.014 },
+  { value: 'aluminio', label: 'Aluminio', emoji: '🥫',
+    color: 'bg-orange-50 border-orange-200 text-orange-700', pts: 80, co2: 9.00, trees: 0.415 },
 ]
 
 function OperadorDashboard() {
   const navigate = useNavigate()
 
-  const [validatorId, setValidatorId] = useState<string | null>(null)
-  const [validator, setValidator] = useState<ValidatorInfo | null>(null)
-
-  const [step, setStep] = useState<Step>('scan')
-  const [qrInput, setQrInput] = useState('')
-  const [userData, setUserData] = useState<any>(null)
-  const [material, setMaterial] = useState('plastico')
-  const [kg, setKg] = useState('')
+  const [step, setStep] = useState<Step>('cart')
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [cartItems, setCartItems] = useState<any[]>([])
+  const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null)
+  const [kgInput, setKgInput] = useState('')
+  const [qrToken, setQrToken] = useState('')
+  const [confirmData, setConfirmData] = useState<any>(null)
+  const [result, setResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<any>(null)
+  const [validator, setValidator] = useState<ValidatorInfo | null>(null)
 
-  // Cargar sesión y datos del validador
+  // ── Inicializar sesión al montar ──────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         navigate({ to: '/login/operador', replace: true })
         return
       }
-      setValidatorId(session.user.id)
-      const { data } = await supabase
+      const { data: v } = await supabase
         .from('validators')
-        .select('center_id, full_name, centers(name)')
+        .select('id, full_name, center_id, centers(name)')
         .eq('id', session.user.id)
         .single()
-      if (data) setValidator(data as ValidatorInfo)
-    })
+      if (!v) {
+        await supabase.auth.signOut()
+        navigate({ to: '/login/operador', replace: true })
+        return
+      }
+      setValidator(v as ValidatorInfo)
+      const id = await createDeliverySession(v.id, v.center_id)
+      setSessionId(id)
+    }
+    init()
   }, [])
 
-  // Logout por inactividad (5 min)
+  // ── Logout por inactividad (5 min) ────────────────────────────
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     const reset = () => {
@@ -90,22 +103,53 @@ function OperadorDashboard() {
     navigate({ to: '/login/operador', replace: true })
   }
 
-  const handleValidateQr = async (token: string) => {
-    if (!validatorId || !validator) return
-    setQrInput(token)
+  // ── Agregar / actualizar item al carrito ──────────────────────
+  const handleAddItem = async (material: string, kg: number) => {
+    if (!sessionId) return
+    setLoading(true)
+    setError(null)
+    try {
+      await addDeliveryItem(sessionId, material, kg)
+      const summary = await getSessionSummary(sessionId)
+      setCartItems(summary?.items ?? [])
+      setSelectedMaterial(null)
+      setKgInput('')
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ── Quitar item del carrito ───────────────────────────────────
+  const handleRemoveItem = async (itemId: string) => {
+    if (!sessionId) return
+    try {
+      await removeDeliveryItem(sessionId, itemId)
+      const summary = await getSessionSummary(sessionId)
+      setCartItems(summary?.items ?? [])
+    } catch (e: any) {
+      setError(e.message)
+    }
+  }
+
+  // ── Validar QR escaneado ──────────────────────────────────────
+  const handleScanQr = async (token: string) => {
+    if (!validator || !sessionId) return
     setLoading(true)
     setError(null)
     try {
       const res = await validateQrForOperator({
         token,
-        validatorId,
-        centerId: validator.center_id,
+        validatorId: validator.id,
+        centerId:    validator.center_id,
       })
       if (!res.valid) {
-        setError(res.error ?? 'QR inválido')
+        setError(res.error ?? 'QR inválido o expirado')
         return
       }
-      setUserData(res)
+      setQrToken(token)
+      setConfirmData(res)
       setStep('confirm')
     } catch {
       setError('Error al verificar el QR. Intenta de nuevo.')
@@ -114,78 +158,256 @@ function OperadorDashboard() {
     }
   }
 
-  const handleRegisterDelivery = async () => {
-    if (!validatorId || !validator) return
+  // ── Confirmar entrega ─────────────────────────────────────────
+  const handleConfirmDelivery = async () => {
+    if (!sessionId || !qrToken || !validator) return
     setLoading(true)
     setError(null)
     try {
-      const res = await registerRecyclingDelivery({
-        token: qrInput,
-        validatorId,
-        centerId: validator.center_id,
-        material,
-        kg: parseFloat(kg),
-      })
+      const res = await confirmDelivery(sessionId, qrToken, validator.id)
       if (!res.success) {
-        setError(res.error ?? 'Error al registrar la entrega')
+        setError(res.error ?? 'Error al confirmar')
+        if (res.session_preserved) setStep('scan')
         return
       }
       setResult(res)
       setStep('success')
-    } catch {
-      setError('Error al registrar. Intenta de nuevo.')
+    } catch (e: any) {
+      setError(e.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const resetFlow = () => {
-    setStep('scan')
-    setQrInput('')
-    setKg('')
-    setMaterial('plastico')
-    setResult(null)
-    setError(null)
+  // ── Nueva entrega ─────────────────────────────────────────────
+  const handleNewDelivery = async () => {
+    if (!validator) return
+    try {
+      const id = await createDeliverySession(validator.id, validator.center_id)
+      setSessionId(id)
+      setCartItems([])
+      setQrToken('')
+      setConfirmData(null)
+      setResult(null)
+      setError(null)
+      setSelectedMaterial(null)
+      setKgInput('')
+      setStep('cart')
+    } catch (e: any) {
+      setError(e.message)
+    }
   }
 
-  const kgFloat = parseFloat(kg)
-  const previewPoints =
-    kg && kgFloat > 0
-      ? Math.round((POINTS_PER_KG[material] ?? 0) * kgFloat)
-      : null
+  // Totales del carrito
+  const totalKg    = cartItems.reduce((s, i) => s + (i.kg ?? 0), 0)
+  const totalPts   = cartItems.reduce((s, i) => s + (i.points_to_award ?? 0), 0)
+  const totalCo2   = cartItems.reduce((s, i) => s + (i.co2_saved_kg ?? 0), 0)
+  const totalTrees = cartItems.reduce((s, i) => s + (i.trees_equivalent ?? 0), 0)
 
-  // ══ PASO A — SCANNER ══
+  // ══════════════════════════════════════════════════════════════
+  // STEP 1 — CART
+  // ══════════════════════════════════════════════════════════════
+  if (step === 'cart') {
+    return (
+      <div className="flex flex-col h-screen bg-gray-50">
+
+        {/* Header */}
+        <div className="bg-white border-b px-5 py-4 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h1 className="font-bold text-gray-900 text-lg">Nueva entrega</h1>
+            <p className="text-xs text-gray-500">{validator?.centers?.name ?? 'Cargando...'}</p>
+          </div>
+          <button onClick={handleLogout} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
+            <LogOut className="h-3.5 w-3.5" />
+            Salir
+          </button>
+        </div>
+
+        {/* Grid 2x2 de materiales */}
+        <div className="grid grid-cols-2 gap-3 p-4 flex-shrink-0">
+          {MATERIALS_CONFIG.map(m => {
+            const inCart = cartItems.find(i => i.material === m.value)
+            return (
+              <button
+                key={m.value}
+                onClick={() => {
+                  setSelectedMaterial(m.value)
+                  setKgInput(inCart ? String(inCart.kg) : '')
+                  setError(null)
+                }}
+                className={`rounded-2xl border-2 p-4 text-left transition-all h-28 relative ${m.color} ${
+                  inCart ? 'ring-2 ring-primary ring-offset-1' : ''
+                }`}
+              >
+                <span className="text-3xl">{m.emoji}</span>
+                <p className="font-bold mt-1">{m.label}</p>
+                <p className="text-xs opacity-70">{m.pts} pts/kg</p>
+                {inCart && (
+                  <span className="absolute top-2 right-2 bg-primary text-white text-xs font-bold rounded-full px-2 py-0.5">
+                    {inCart.kg}kg
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Panel de peso — aparece al seleccionar material */}
+        {selectedMaterial && (() => {
+          const m = MATERIALS_CONFIG.find(x => x.value === selectedMaterial)!
+          const kg = parseFloat(kgInput)
+          const preview = kgInput && kg > 0 ? {
+            pts:   Math.round(m.pts * kg),
+            co2:   (m.co2 * kg).toFixed(2),
+            trees: (m.trees * kg).toFixed(3),
+          } : null
+          return (
+            <div className="mx-4 rounded-2xl bg-white border-2 border-primary/30 p-4 space-y-3 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-gray-800">{m.emoji} {m.label} — Peso (kg)</p>
+                <button onClick={() => { setSelectedMaterial(null); setError(null) }} className="text-gray-400 text-lg leading-none">✕</button>
+              </div>
+
+              <input
+                type="number"
+                inputMode="decimal"
+                value={kgInput}
+                onChange={e => setKgInput(e.target.value)}
+                min="0.1"
+                max="50"
+                step="0.1"
+                placeholder="0.0"
+                autoFocus
+                className="w-full rounded-xl border border-gray-200 px-4 py-4 text-2xl font-bold text-center outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+
+              {preview && (
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl bg-primary/10 p-2">
+                    <p className="text-xs text-gray-500">Puntos</p>
+                    <p className="font-bold text-primary">+{preview.pts}</p>
+                  </div>
+                  <div className="rounded-xl bg-green-50 p-2">
+                    <p className="text-xs text-gray-500">CO₂</p>
+                    <p className="font-bold text-green-700">{preview.co2}kg</p>
+                  </div>
+                  <div className="rounded-xl bg-emerald-50 p-2">
+                    <p className="text-xs text-gray-500">🌳</p>
+                    <p className="font-bold text-emerald-700">{preview.trees}</p>
+                  </div>
+                </div>
+              )}
+
+              {error && <p className="text-xs text-red-600 font-medium">{error}</p>}
+
+              <button
+                onClick={() => handleAddItem(selectedMaterial, kg)}
+                disabled={!kgInput || kg < 0.1 || loading}
+                className="w-full rounded-xl bg-primary h-14 text-sm font-bold text-white disabled:opacity-40"
+              >
+                {loading ? 'Guardando...' : (
+                  cartItems.find(i => i.material === selectedMaterial)
+                    ? 'Actualizar' : 'Agregar al carrito'
+                )}
+              </button>
+            </div>
+          )
+        })()}
+
+        {/* Lista del carrito */}
+        {cartItems.length > 0 && !selectedMaterial && (
+          <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-2">
+            {cartItems.map(item => {
+              const m = MATERIALS_CONFIG.find(x => x.value === item.material)!
+              return (
+                <div key={item.id} className="flex items-center gap-3 bg-white rounded-2xl p-3 border border-gray-100">
+                  <span className="text-2xl">{m?.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm">{m?.label}</p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {item.kg}kg · +{item.points_to_award}pts · 🌳{(item.trees_equivalent ?? 0).toFixed(3)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveItem(item.id)}
+                    className="text-gray-300 hover:text-red-400 text-xl leading-none"
+                  >✕</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Panel inferior fijo */}
+        <div className="bg-white border-t px-4 py-4 space-y-3 flex-shrink-0">
+          {cartItems.length > 0 && (
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {[
+                { label: 'Kg total', value: totalKg.toFixed(1),   unit: 'kg'  },
+                { label: 'Puntos',   value: String(totalPts),      unit: 'pts' },
+                { label: 'CO₂',     value: totalCo2.toFixed(1),   unit: 'kg'  },
+                { label: '🌳',       value: totalTrees.toFixed(2), unit: ''    },
+              ].map(stat => (
+                <div key={stat.label} className="rounded-xl bg-gray-50 p-2">
+                  <p className="text-[10px] text-gray-400">{stat.label}</p>
+                  <p className="font-bold text-sm text-primary">{stat.value}{stat.unit}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-[9px] text-gray-300 text-center">
+            Fuente: EPA 2020 · IPCC (21.7 kg CO₂/árbol/año)
+          </p>
+
+          <button
+            onClick={() => { setStep('scan'); setError(null) }}
+            disabled={cartItems.length === 0}
+            className="w-full rounded-2xl bg-primary h-14 text-base font-bold text-white disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            {cartItems.length === 0
+              ? 'Agrega materiales para continuar'
+              : `Confirmar entrega (${cartItems.length} material${cartItems.length > 1 ? 'es' : ''})`}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // STEP 2 — SCAN QR
+  // ══════════════════════════════════════════════════════════════
   if (step === 'scan') {
     return (
       <div className="h-screen flex flex-col bg-gray-50">
         <div className="px-5 pt-5 pb-3 flex items-center justify-between bg-white shrink-0 border-b border-gray-100">
           <div>
             <h1 className="font-bold text-lg text-gray-900">Escanear QR</h1>
-            <p className="text-xs text-gray-500">
-              {validator?.centers?.name ?? 'Centro de acopio'}
-            </p>
+            <p className="text-xs text-gray-500">{validator?.centers?.name}</p>
           </div>
           <button
-            onClick={handleLogout}
-            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 transition-colors"
+            onClick={() => { setStep('cart'); setError(null) }}
+            className="text-xs text-primary font-semibold"
           >
-            <LogOut className="h-4 w-4" />
-            Salir
+            ← Carrito ({cartItems.length})
           </button>
         </div>
 
         <div className="flex-1 p-4 min-h-0">
-          <QrScanner onScan={handleValidateQr} onError={e => setError(e)} />
+          <QrScanner
+            onScan={handleScanQr}
+            onError={e => setError(e)}
+          />
         </div>
 
         {error && (
           <div className="mx-4 mb-4 rounded-2xl bg-red-50 border border-red-200 p-4 shrink-0">
             <p className="text-sm text-red-700 font-medium text-center">{error}</p>
             <button
-              onClick={() => { setError(null); setQrInput('') }}
+              onClick={() => setError(null)}
               className="mt-2 w-full text-xs text-red-500 underline text-center"
             >
-              Escanear de nuevo
+              Intentar de nuevo
             </button>
           </div>
         )}
@@ -193,158 +415,141 @@ function OperadorDashboard() {
     )
   }
 
-  // ══ PASOS B y C ══
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-sm text-gray-900 truncate max-w-[180px]">
-            {validator?.centers?.name ?? 'Centro de acopio'}
-          </span>
+  // ══════════════════════════════════════════════════════════════
+  // STEP 3 — CONFIRM
+  // ══════════════════════════════════════════════════════════════
+  if (step === 'confirm') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="px-5 pt-5 pb-3 bg-white border-b border-gray-100 flex-shrink-0">
+          <h1 className="font-bold text-lg text-gray-900">Confirmar entrega</h1>
+          <p className="text-xs text-gray-500">{validator?.centers?.name}</p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800"
-        >
-          <LogOut className="h-4 w-4" />
-          Salir
-        </button>
-      </header>
 
-      <div className="flex-1 max-w-lg w-full mx-auto">
+        <div className="flex-1 p-5 space-y-5 overflow-y-auto">
+          {/* Identidad del estudiante */}
+          <div className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-green-200">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-white text-2xl font-bold shrink-0">
+              {confirmData?.full_name?.charAt(0) ?? '?'}
+            </div>
+            <div className="min-w-0">
+              <p className="font-bold text-gray-900 text-lg truncate">{confirmData?.full_name}</p>
+              <p className="text-xs text-gray-400 font-mono truncate">{confirmData?.qr_code}</p>
+              <p className="text-sm text-primary font-semibold mt-1">
+                {confirmData?.points?.toLocaleString()} EcoPuntos actuales
+              </p>
+            </div>
+            <CheckCircle2 className="h-7 w-7 text-green-500 shrink-0" />
+          </div>
 
-        {/* ══ PASO B — CONFIRM ══ */}
-        {step === 'confirm' && (
-          <div className="space-y-5 p-5">
-            <div className="rounded-2xl bg-green-50 border border-green-200 p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white font-bold text-xl shrink-0">
-                  {userData?.full_name?.charAt(0) ?? '?'}
+          {/* Resumen de materiales */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+            <p className="text-sm font-bold text-gray-700">Materiales a registrar</p>
+            {cartItems.map(item => {
+              const m = MATERIALS_CONFIG.find(x => x.value === item.material)!
+              return (
+                <div key={item.id} className="flex items-center justify-between text-sm">
+                  <span className="text-gray-700">{m?.emoji} {m?.label} — {item.kg}kg</span>
+                  <span className="font-bold text-primary">+{item.points_to_award}pts</span>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-gray-900 truncate text-lg">{userData?.full_name}</p>
-                  <p className="text-xs text-gray-500 font-mono truncate">{userData?.qr_code}</p>
-                  <p className="text-sm text-primary font-semibold mt-0.5">
-                    {userData?.points?.toLocaleString()} EcoPuntos
-                  </p>
-                </div>
-                <CheckCircle2 className="h-7 w-7 text-green-500 ml-auto shrink-0" />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-base font-semibold text-gray-700">
-                Tipo de material
-              </label>
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                {MATERIALS.map(m => (
-                  <button
-                    key={m.value}
-                    type="button"
-                    onClick={() => setMaterial(m.value)}
-                    className={`rounded-xl border-2 p-4 text-left transition-colors ${
-                      material === m.value
-                        ? 'border-primary bg-primary/10'
-                        : 'border-gray-200 bg-white'
-                    }`}
-                  >
-                    <span className="text-2xl">{m.emoji}</span>
-                    <p className="text-base font-semibold mt-1">{m.label}</p>
-                    <p className="text-xs text-gray-400">{m.pts} pts/kg</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-base font-semibold text-gray-700">Peso (kg)</label>
-              <input
-                type="number"
-                value={kg}
-                onChange={e => setKg(e.target.value)}
-                placeholder="0.0"
-                min="0.1"
-                max="50"
-                step="0.1"
-                className="mt-2 w-full h-14 rounded-xl border border-gray-200 px-4 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
-            </div>
-
-            {previewPoints !== null && (
-              <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 text-center">
-                <p className="text-sm text-gray-500">Puntos a otorgar</p>
-                <p className="text-3xl font-extrabold text-primary">+{previewPoints}</p>
-                <p className="text-xs text-gray-400">EcoPuntos</p>
-              </div>
-            )}
-
-            {error && (
-              <p className="text-sm text-red-600 font-medium text-center">{error}</p>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => { setStep('scan'); setQrInput(''); setError(null) }}
-                className="h-14 rounded-xl border-2 border-gray-200 text-base font-semibold text-gray-600"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleRegisterDelivery}
-                disabled={!kg || kgFloat <= 0 || loading}
-                className="h-14 rounded-xl bg-primary text-base font-bold text-white disabled:opacity-40"
-              >
-                {loading ? 'Registrando...' : 'Confirmar'}
-              </button>
+              )
+            })}
+            <div className="border-t pt-3 flex items-center justify-between">
+              <span className="text-sm font-bold text-gray-800">Total puntos</span>
+              <span className="text-xl font-extrabold text-primary">+{totalPts}</span>
             </div>
           </div>
-        )}
 
-        {/* ══ PASO C — SUCCESS ══ */}
-        {step === 'success' && (
-          <div className="flex flex-col items-center justify-center min-h-[calc(100vh-57px)] p-6 text-center space-y-5">
-            <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="h-12 w-12 text-green-500" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-extrabold text-gray-900">¡Entrega registrada!</h2>
-              <p className="text-sm text-gray-500 mt-1">{result?.full_name}</p>
-            </div>
+          {error && (
+            <p className="text-sm text-red-600 font-medium text-center">{error}</p>
+          )}
 
-            <div className="w-full rounded-2xl bg-white border p-5 space-y-3">
-              <div className="flex justify-between text-base">
-                <span className="text-gray-500">Material</span>
-                <span className="font-semibold capitalize">{result?.material}</span>
-              </div>
-              <div className="flex justify-between text-base">
-                <span className="text-gray-500">Peso</span>
-                <span className="font-semibold">{result?.kg} kg</span>
-              </div>
-              <div className="flex justify-between text-base">
-                <span className="text-gray-500">CO₂ ahorrado</span>
-                <span className="font-semibold">{result?.co2_saved_kg} kg</span>
-              </div>
-              <div className="flex justify-between text-base border-t pt-3">
-                <span className="text-gray-500">EcoPuntos</span>
-                <span className="text-2xl font-extrabold text-primary">+{result?.points_earned}</span>
-              </div>
-              <div className="flex justify-between text-base">
-                <span className="text-gray-500">Nuevo saldo</span>
-                <span className="font-bold text-gray-900">
-                  {result?.new_balance?.toLocaleString()} pts
-                </span>
-              </div>
-            </div>
-
+          <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={resetFlow}
-              className="w-full h-14 rounded-xl bg-primary text-base font-bold text-white"
+              onClick={() => { setStep('scan'); setConfirmData(null); setError(null) }}
+              className="h-14 rounded-xl border-2 border-gray-200 text-base font-semibold text-gray-600"
             >
-              Nueva entrega
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirmDelivery}
+              disabled={loading}
+              className="h-14 rounded-xl bg-primary text-base font-bold text-white disabled:opacity-40"
+            >
+              {loading ? 'Confirmando...' : 'Confirmar ✓'}
             </button>
           </div>
-        )}
+        </div>
+      </div>
+    )
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // STEP 4 — SUCCESS
+  // ══════════════════════════════════════════════════════════════
+  const treesVal = result?.total_trees ?? totalTrees
+  const phrase =
+    treesVal >= 1
+      ? `¡Salvaste ${treesVal.toFixed(1)} árboles hoy! 🌳`
+      : treesVal >= 0.1
+      ? `¡Contribuiste al equivalente de ${(treesVal * 100).toFixed(0)}% de un árbol! 🌱`
+      : '¡Cada kilo cuenta para el planeta! ♻️'
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="flex-1 p-6 flex flex-col items-center space-y-5 overflow-y-auto">
+
+        <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center">
+          <CheckCircle2 className="h-12 w-12 text-green-500" />
+        </div>
+
+        <div className="text-center">
+          <h2 className="text-2xl font-extrabold text-gray-900">¡Entrega registrada!</h2>
+          <p className="text-base text-gray-700 font-semibold mt-1">{confirmData?.full_name}</p>
+          <p className="text-sm text-primary font-medium mt-2">{phrase}</p>
+        </div>
+
+        {/* Resumen de impacto */}
+        <div className="w-full grid grid-cols-4 gap-2 text-center">
+          {[
+            { label: 'Kg total', value: (result?.total_kg ?? totalKg).toFixed(1),       unit: 'kg'  },
+            { label: 'Puntos',   value: String(result?.total_points ?? totalPts),        unit: 'pts' },
+            { label: 'CO₂',     value: (result?.total_co2 ?? totalCo2).toFixed(1),      unit: 'kg'  },
+            { label: '🌳 Árb.',  value: (result?.total_trees ?? totalTrees).toFixed(2),  unit: ''    },
+          ].map(s => (
+            <div key={s.label} className="rounded-xl bg-white border border-gray-100 p-3">
+              <p className="text-[10px] text-gray-400">{s.label}</p>
+              <p className="font-extrabold text-sm text-primary">{s.value}{s.unit}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Detalle de materiales */}
+        <div className="w-full bg-white rounded-2xl border border-gray-100 p-4 space-y-2">
+          {cartItems.map(item => {
+            const m = MATERIALS_CONFIG.find(x => x.value === item.material)!
+            return (
+              <div key={item.id} className="flex justify-between items-center text-sm">
+                <span className="text-gray-700">{m?.emoji} {m?.label} · {item.kg}kg</span>
+                <div className="text-right">
+                  <p className="font-bold text-primary">+{item.points_to_award}pts</p>
+                  <p className="text-xs text-green-600">{(item.co2_saved_kg ?? 0).toFixed(2)}kg CO₂</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <p className="text-[9px] text-gray-300 text-center">
+          Fuente: EPA 2020 · IPCC (21.7 kg CO₂/árbol/año)
+        </p>
+
+        <button
+          onClick={handleNewDelivery}
+          className="w-full h-14 rounded-2xl bg-primary text-base font-bold text-white"
+        >
+          Nueva entrega
+        </button>
       </div>
     </div>
   )

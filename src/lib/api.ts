@@ -69,6 +69,76 @@ export async function validateQrForOperator(params: {
   }
 }
 
+// ── Sesión de entrega (SCRUM-92 / SCRUM-89 / SCRUM-90) ───────────
+
+export async function createDeliverySession(
+  operatorId: string,
+  centerId: string,
+) {
+  const { data, error } = await supabase.rpc('create_delivery_session', {
+    p_operator_id: operatorId,
+    p_center_id:   centerId,
+  })
+  if (error) throw error
+  return data as string // session_id
+}
+
+export async function addDeliveryItem(
+  sessionId: string,
+  material: string,
+  kg: number,
+) {
+  const { data, error } = await supabase.rpc('add_delivery_item', {
+    p_session_id: sessionId,
+    p_material:   material,
+    p_kg:         kg,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function removeDeliveryItem(sessionId: string, itemId: string) {
+  const { data, error } = await supabase.rpc('remove_delivery_item', {
+    p_session_id: sessionId,
+    p_item_id:    itemId,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function getSessionSummary(sessionId: string) {
+  const { data, error } = await supabase.rpc('get_session_summary', {
+    p_session_id: sessionId,
+  })
+  if (error) throw error
+  return data
+}
+
+export async function confirmDelivery(
+  sessionId: string,
+  qrToken: string,
+  validatorId: string,
+) {
+  const { data, error } = await supabase.rpc('confirm_delivery', {
+    p_session_id:   sessionId,
+    p_qr_token:     qrToken,
+    p_validator_id: validatorId,
+  })
+  if (error) throw error
+  return data as {
+    success: boolean
+    error?: string
+    session_preserved?: boolean
+    full_name?: string
+    total_kg?: number
+    total_points?: number
+    total_co2?: number
+    total_trees?: number
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+
 export async function registerRecyclingDelivery(params: {
   token: string
   validatorId: string
