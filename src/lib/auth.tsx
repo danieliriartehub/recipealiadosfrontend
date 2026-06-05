@@ -44,25 +44,16 @@ import { backendApi } from './backendApi'
 
 export type UserRole = 'aliado' | 'operador' | null
 
-export async function getUserRole(userId: string): Promise<UserRole> {
+export async function getUserRole(_userId: string): Promise<UserRole> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) return null
 
   try {
-    const operatorData = await backendApi.withToken(session.access_token).get<any>('/api/v1/aliados/operator/me')
-    if (operatorData?.id) return 'operador'
-  } catch (e) {
-    // ignorar error, intentar como aliado
+    const data = await backendApi.withToken(session.access_token).get<any>('/api/v1/aliados/whoami')
+    return data?.role ?? null
+  } catch {
+    return null
   }
-
-  try {
-    const merchantData = await backendApi.withToken(session.access_token).get<any>('/api/v1/aliados/me')
-    if (merchantData?.is_active) return 'aliado'
-  } catch (e) {
-    // ignorar error
-  }
-
-  return null
 }
 
 /**
@@ -159,15 +150,21 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
-  async function fetchMerchantUser(userId: string) {
+  async function fetchMerchantUser(_userId: string) {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
         setMerchantUser(null)
         return
       }
-      const data = await backendApi.withToken(session.access_token).get<any>('/api/v1/aliados/me')
-      setMerchantUser(data ?? null)
+      // Usa /whoami para evitar llamadas innecesarias a /aliados/me cuando el
+      // usuario es un operador — de lo contrario generaría 404s en consola.
+      const whoami = await backendApi.withToken(session.access_token).get<any>('/api/v1/aliados/whoami')
+      if (whoami?.role !== 'aliado') {
+        setMerchantUser(null)
+        return
+      }
+      setMerchantUser(whoami ?? null)
     } catch {
       setMerchantUser(null)
     }
