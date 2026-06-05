@@ -3,10 +3,48 @@ import { useNavigate } from '@tanstack/react-router'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
+// ── URL del backend Railway ───────────────────────────────────────
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string
+
+// Tipo de la respuesta de /api/v1/auth/login
+interface BackendSession {
+  access_token: string
+  refresh_token: string
+  token_type: string
+  expires_in: number
+  user: {
+    id: string
+    email: string
+    full_name?: string | null
+    email_confirmed: boolean
+  }
+}
+interface BackendLoginResponse {
+  session: BackendSession
+}
+
+// ── Helper privado: llama al backend /logout con el token activo ──
+async function callBackendLogout(): Promise<void> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    await fetch(`${BACKEND_URL}/api/v1/auth/logout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+  } catch {
+    // El logout del backend falla silenciosamente;
+    // el cliente limpia su sesión de todas formas.
+  }
+}
+
 // ── Roles y funciones standalone ─────────────────────────────────
 
 export type UserRole = 'aliado' | 'operador' | null
 
+// getUserRole sigue consultando Supabase directamente.
+// Funciona porque después del login se llama setSession(),
+// que establece el JWT en el cliente Supabase local.
 export async function getUserRole(userId: string): Promise<UserRole> {
   const { data: validator } = await supabase
     .from('validators')
@@ -25,24 +63,60 @@ export async function getUserRole(userId: string): Promise<UserRole> {
   return null
 }
 
+/**
+ * Autentica al usuario contra el backend Railway.
+ * Flujo:
+ *  1. POST /api/v1/auth/login → backend valida en Supabase Auth y devuelve tokens
+ *  2. supabase.auth.setSession() restaura la sesión local con esos tokens
+ *  3. getUserRole() determina el rol usando el JWT ya establecido
+ */
 export async function signIn(
   email: string,
   password: string,
 ): Promise<{ role: UserRole; error: string | null }> {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) return { role: null, error: error.message }
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
 
-  const role = await getUserRole(data.user.id)
-  if (!role) {
-    await supabase.auth.signOut()
-    return { role: null, error: 'No tienes acceso a este portal.' }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      return { role: null, error: body.detail ?? 'Correo o contraseña incorrectos.' }
+    }
+
+    const { session }: BackendLoginResponse = await res.json()
+
+    // Restaurar sesión Supabase en el cliente para habilitar queries con RLS
+    await supabase.auth.setSession({
+      access_token:  session.access_token,
+      refresh_token: session.refresh_token,
+    })
+
+    const role = await getUserRole(session.user.id)
+    if (!role) {
+      await callBackendLogout()
+      await supabase.auth.signOut()
+      return { role: null, error: 'No tienes acceso a este portal.' }
+    }
+
+    return { role, error: null }
+  } catch (e: any) {
+    return { role: null, error: e?.message ?? 'Error de conexión con el servidor.' }
   }
-  return { role, error: null }
 }
 
-export async function signOut() {
+/**
+ * Cierra sesión: notifica al backend (invalida el JWT en Supabase)
+ * y limpia la sesión local del cliente Supabase.
+ */
+export async function signOut(): Promise<void> {
+  await callBackendLogout()
   await supabase.auth.signOut()
 }
+
+// ── MerchantAuthProvider (aliados) ────────────────────────────────
 
 interface MerchantPartner {
   id: string
@@ -114,19 +188,14 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  async function signIn(email: string, password: string): Promise<{ error: string | null }> {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      if (error.message === 'Invalid login credentials')
-        return { error: 'Correo o contraseña incorrectos' }
-      if (error.message === 'Email not confirmed')
-        return { error: 'Cuenta pendiente de activación' }
-      return { error: error.message }
-    }
-    return { error: null }
+  // Renombradas para evitar shadowing del módulo; delegadas al backend.
+  async function contextSignIn(email: string, password: string): Promise<{ error: string | null }> {
+    const { error } = await signIn(email, password) // llama al signIn del módulo → backend
+    return { error }
   }
 
-  async function signOut(): Promise<void> {
+  async function contextSignOut(): Promise<void> {
+    await callBackendLogout()
     await supabase.auth.signOut()
     setMerchantUser(null)
     navigate({ to: '/login', replace: true })
@@ -136,7 +205,14 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <MerchantAuthContext.Provider
-      value={{ session, merchantUser, merchantPartner, loading, signIn, signOut }}
+      value={{
+        session,
+        merchantUser,
+        merchantPartner,
+        loading,
+        signIn: contextSignIn,
+        signOut: contextSignOut,
+      }}
     >
       {children}
     </MerchantAuthContext.Provider>

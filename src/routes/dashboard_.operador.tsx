@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { CheckCircle2, LogOut } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { signOut } from '@/lib/auth'
 import {
   validateQrForOperator,
   createDeliverySession,
@@ -65,7 +66,7 @@ function OperadorDashboard() {
         .eq('id', session.user.id)
         .single()
       if (!v) {
-        await supabase.auth.signOut()
+        await signOut()
         navigate({ to: '/login/operador', replace: true })
         return
       }
@@ -82,7 +83,7 @@ function OperadorDashboard() {
     const reset = () => {
       clearTimeout(timer)
       timer = setTimeout(async () => {
-        await supabase.auth.signOut()
+        await signOut()
         navigate({ to: '/login/operador', replace: true })
       }, 5 * 60 * 1000)
     }
@@ -99,7 +100,7 @@ function OperadorDashboard() {
   }, [])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await signOut()
     navigate({ to: '/login/operador', replace: true })
   }
 

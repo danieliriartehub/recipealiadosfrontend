@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { signIn, getUserRole } from '@/lib/auth'
+import { signIn, signOut, getUserRole } from '@/lib/auth'
 import { Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
 
 export const Route = createFileRoute('/login/operador')({
@@ -67,7 +67,7 @@ function OperadorLogin() {
     }
 
     if (role !== 'operador') {
-      await supabase.auth.signOut()
+      await signOut()
       setError('No tienes acceso a este portal.')
       setLoading(false)
       return
