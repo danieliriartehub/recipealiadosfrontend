@@ -1,12 +1,14 @@
-import { supabase } from './supabase'
+import { getAccessToken } from './auth'
 import { backendApi } from './backendApi'
 
 // ─── Helper: obtener token activo ─────────────────────────────────────────────
+// Usa el access_token en memoria (nunca localStorage). Si no existe, el usuario
+// no está autenticado — el MerchantAuthProvider debería haberlo redirigido.
 
-async function getToken(): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.access_token) throw new Error('No autenticado')
-  return session.access_token
+function getToken(): string {
+  const token = getAccessToken()
+  if (!token) throw new Error('No autenticado')
+  return token
 }
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
@@ -109,14 +111,13 @@ export async function addDeliveryItem(
 }
 
 export async function removeDeliveryItem(sessionId: string, itemId: string) {
-  const token = await getToken()
-  return backendApi.withToken(token).deleteAuth<void>('/api/v1/aliados/operator/delivery-session/item', token, {
-     body: {
-       session_id: sessionId,
-       item_id: itemId
-     }
+  const token = getToken()
+  return backendApi.withToken(token).post<unknown>('/api/v1/aliados/operator/delivery-session/item/remove', {
+    session_id: sessionId,
+    item_id: itemId,
   })
 }
+
 
 export async function getSessionSummary(sessionId: string) {
   const token = await getToken()

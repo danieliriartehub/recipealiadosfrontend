@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { signIn, signOut, getUserRole } from '@/lib/auth'
+import { signIn, signOut, getUserRole, getAccessToken } from '@/lib/auth'
 import { Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
+
 
 export const Route = createFileRoute('/login/operador')({
   component: OperadorLogin,
@@ -21,12 +21,15 @@ function OperadorLogin() {
 
   // Redirigir si ya hay sesión activa de operador
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return
-      const role = await getUserRole(session.user.id)
+    const check = async () => {
+      const token = getAccessToken()
+      if (!token) return
+      const role = await getUserRole('')
       if (role === 'operador') navigate({ to: '/dashboard/operador', replace: true })
-    })
+    }
+    check()
   }, [])
+
 
   // Countdown de bloqueo
   useEffect(() => {

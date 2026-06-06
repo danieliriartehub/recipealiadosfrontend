@@ -1,96 +1,99 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { backendApi, type LoginResponse, type RefreshResponse } from './backendApi'
 
-// ── URL del backend Railway ───────────────────────────────────────
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string
+// ─── Token en memoria ────────────────────────────────────────────────────────
+// El access_token vive solo en RAM. Nunca toca localStorage ni sessionStorage.
+// Al recargar la página, MerchantAuthProvider lo reconstituye vía /refresh.
 
-// Tipo de la respuesta de /api/v1/auth/login
-interface BackendSession {
-  access_token: string
-  refresh_token: string
-  token_type: string
-  expires_in: number
-  user: {
-    id: string
-    email: string
-    full_name?: string | null
-    email_confirmed: boolean
-  }
-}
-interface BackendLoginResponse {
-  session: BackendSession
+let _accessToken: string | null = null
+
+/** Retorna el access_token actual (en memoria). Úsalo en lugar de supabase.auth.getSession(). */
+export const getAccessToken = (): string | null => _accessToken
+
+function setAccessToken(t: string | null): void {
+  _accessToken = t
 }
 
-// ── Helper privado: llama al backend /logout con el token activo ──
-async function callBackendLogout(): Promise<void> {
+// ─── Constantes de refresco ───────────────────────────────────────────────────
+// El access_token de Supabase dura 3600s (1h).
+// Refrescamos a los 55 minutos para tener 5 min de margen.
+const REFRESH_INTERVAL_MS = 55 * 60 * 1000
+
+// ─── silentRefresh ───────────────────────────────────────────────────────────
+// Llama al backend para obtener un nuevo access_token usando la cookie HttpOnly.
+// credentials: 'include' en backendApi garantiza que la cookie se adjunte.
+
+async function silentRefresh(): Promise<string | null> {
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.access_token) return
-    await fetch(`${BACKEND_URL}/api/v1/auth/logout`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
+    const data = await backendApi.post<RefreshResponse>('/api/v1/auth/refresh')
+    // Sincronizar el cliente Supabase con el nuevo token (solo en memoria).
+    // El refresh_token real está en la cookie HttpOnly — usamos un placeholder
+    // requerido por el SDK de supabase-js.
+    await supabase.auth.setSession({
+      access_token:  data.access_token,
+      refresh_token: 'dummy-refresh-token',
     })
-  } catch {
-    // El logout del backend falla silenciosamente;
-    // el cliente limpia su sesión de todas formas.
+    setAccessToken(data.access_token)
+    console.log('[RECIPE] Token refrescado via /refresh')
+    return data.access_token
+  } catch (err) {
+    // Cookie expirada o revocada → sin sesión activa
+    console.warn('[RECIPE] silentRefresh falló:', (err as Error).message)
+    return null
   }
 }
 
-import { backendApi } from './backendApi'
-
-// ── Roles y funciones standalone ─────────────────────────────────
+// ─── Roles ───────────────────────────────────────────────────────────────────
 
 export type UserRole = 'aliado' | 'operador' | null
 
+/**
+ * Determina el rol del usuario consultando /api/v1/aliados/whoami.
+ * Usa el token en memoria — el parámetro _userId se mantiene por compatibilidad
+ * con las rutas existentes pero no se usa en la consulta.
+ */
 export async function getUserRole(_userId: string): Promise<UserRole> {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.access_token) return null
-
+  const token = getAccessToken()
+  if (!token) return null
   try {
-    const data = await backendApi.withToken(session.access_token).get<any>('/api/v1/aliados/whoami')
+    const data = await backendApi.withToken(token).get<any>('/api/v1/aliados/whoami')
     return data?.role ?? null
   } catch {
     return null
   }
 }
 
+// ─── signIn (standalone) ─────────────────────────────────────────────────────
+
 /**
  * Autentica al usuario contra el backend Railway.
  * Flujo:
- *  1. POST /api/v1/auth/login → backend valida en Supabase Auth y devuelve tokens
- *  2. supabase.auth.setSession() restaura la sesión local con esos tokens
- *  3. getUserRole() determina el rol usando el JWT ya establecido
+ *  1. POST /api/v1/auth/login → backend valida en Supabase Auth
+ *  2. access_token en body → setSession en memoria (dummy refresh_token)
+ *  3. refresh_token → cookie HttpOnly (el navegador lo gestiona automáticamente)
+ *  4. getUserRole() determina el rol para el redireccionamiento
  */
 export async function signIn(
   email: string,
   password: string,
 ): Promise<{ role: UserRole; error: string | null }> {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/v1/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
+    const data = await backendApi.post<LoginResponse>('/api/v1/auth/login', { email, password })
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      return { role: null, error: body.detail ?? 'Correo o contraseña incorrectos.' }
-    }
-
-    const { session }: BackendLoginResponse = await res.json()
-
-    // Restaurar sesión Supabase en el cliente para habilitar queries con RLS
+    // Sincronizar el cliente Supabase con el access_token.
+    // El refresh_token viaja solo en cookie — usamos un placeholder requerido por el SDK.
     await supabase.auth.setSession({
-      access_token:  session.access_token,
-      refresh_token: session.refresh_token,
+      access_token:  data.session.access_token,
+      refresh_token: 'dummy-refresh-token',
     })
 
-    const role = await getUserRole(session.user.id)
+    setAccessToken(data.session.access_token)
+
+    const role = await getUserRole(data.session.user.id)
     if (!role) {
-      await callBackendLogout()
-      await supabase.auth.signOut()
+      await signOut()
       return { role: null, error: 'No tienes acceso a este portal.' }
     }
 
@@ -100,16 +103,27 @@ export async function signIn(
   }
 }
 
+// ─── signOut (standalone) ────────────────────────────────────────────────────
+
 /**
- * Cierra sesión: notifica al backend (invalida el JWT en Supabase)
- * y limpia la sesión local del cliente Supabase.
+ * Cierra sesión: notifica al backend (invalida el JWT y borra la cookie HttpOnly)
+ * y limpia la sesión local de Supabase.
  */
 export async function signOut(): Promise<void> {
-  await callBackendLogout()
+  const token = _accessToken
+  setAccessToken(null)
+  try {
+    if (token) {
+      await backendApi.postAuth<void>('/api/v1/auth/logout', token)
+    }
+  } catch {
+    // El logout del backend falla silenciosamente;
+    // el cliente limpia su sesión de todas formas.
+  }
   await supabase.auth.signOut()
 }
 
-// ── MerchantAuthProvider (aliados) ────────────────────────────────
+// ─── MerchantAuthProvider ─────────────────────────────────────────────────────
 
 interface MerchantPartner {
   id: string
@@ -145,64 +159,131 @@ interface MerchantAuthContextValue {
 const MerchantAuthContext = createContext<MerchantAuthContextValue | null>(null)
 
 export function MerchantAuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
+  const [session, setSession]           = useState<Session | null>(null)
   const [merchantUser, setMerchantUser] = useState<MerchantUser | null>(null)
-  const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
+  const [loading, setLoading]           = useState(true)
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  async function fetchMerchantUser(_userId: string) {
+  // ── Refresco automático del access_token ─────────────────────────────────
+  function startRefreshTimer() {
+    if (refreshTimerRef.current) clearInterval(refreshTimerRef.current)
+    refreshTimerRef.current = setInterval(async () => {
+      const token = await silentRefresh()
+      if (!token) {
+        stopRefreshTimer()
+        setSession(null)
+        setMerchantUser(null)
+      }
+    }, REFRESH_INTERVAL_MS)
+  }
+
+  function stopRefreshTimer() {
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current)
+      refreshTimerRef.current = null
+    }
+  }
+
+  // ── fetchMerchantUser ────────────────────────────────────────────────────
+  // Consulta /whoami y actualiza el estado solo si el rol es 'aliado'.
+  async function fetchMerchantUser(token: string) {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) {
+      // Usa /whoami para evitar 404s cuando el usuario es operador
+      const whoami = await backendApi.withToken(token).get<any>('/api/v1/aliados/whoami')
+      if (whoami?.role === 'aliado') {
+        setMerchantUser(whoami ?? null)
+      } else {
         setMerchantUser(null)
-        return
       }
-      // Usa /whoami para evitar llamadas innecesarias a /aliados/me cuando el
-      // usuario es un operador — de lo contrario generaría 404s en consola.
-      const whoami = await backendApi.withToken(session.access_token).get<any>('/api/v1/aliados/whoami')
-      if (whoami?.role !== 'aliado') {
-        setMerchantUser(null)
-        return
-      }
-      setMerchantUser(whoami ?? null)
     } catch {
       setMerchantUser(null)
     }
   }
 
+  // ── ARRANQUE: reconstituir sesión desde cookie HttpOnly ──────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session?.user) {
-        fetchMerchantUser(session.user.id).finally(() => setLoading(false))
-      } else {
-        setLoading(false)
-      }
-    })
+    let mounted = true
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      if (session?.user) {
-        fetchMerchantUser(session.user.id)
-      } else {
+    const bootstrap = async () => {
+      // Paso 1: token en memoria (ya existe si el login fue en esta misma pestaña)
+      let token = getAccessToken()
+
+      // Paso 2: si no hay token (recarga de página), intentar refresco silencioso
+      // usando la cookie HttpOnly. credentials: 'include' lo garantiza.
+      if (!token) {
+        token = await silentRefresh()
+      }
+
+      if (!mounted) return
+
+      if (token) {
+        // Paso 3: obtener el objeto Session completo (setSession ya lo cargó en RAM)
+        const { data: { session: sess } } = await supabase.auth.getSession()
+        if (mounted && sess) {
+          setSession(sess)
+          startRefreshTimer()
+          await fetchMerchantUser(token)
+        }
+      }
+
+      if (mounted) setLoading(false)
+    }
+
+    bootstrap()
+
+    // Escuchar eventos de Supabase para reaccionar a cambios de estado
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
+      if (!mounted) return
+
+      if (event === 'SIGNED_OUT') {
+        stopRefreshTimer()
+        setSession(null)
         setMerchantUser(null)
+        setAccessToken(null)
+        if (mounted) setLoading(false)
+      }
+
+      if (event === 'TOKEN_REFRESHED' && sess) {
+        setSession(sess)
+        setAccessToken(sess.access_token)
       }
     })
 
-    return () => subscription.unsubscribe()
+    // Timeout de emergencia: 8s — evita loading infinito si el backend no responde
+    const timeout = setTimeout(() => {
+      if (mounted) setLoading(false)
+    }, 8000)
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+      stopRefreshTimer()
+      clearTimeout(timeout)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Renombradas para evitar shadowing del módulo; delegadas al backend.
+  // ── contextSignIn ────────────────────────────────────────────────────────
   async function contextSignIn(email: string, password: string): Promise<{ error: string | null }> {
-    const { error } = await signIn(email, password) // llama al signIn del módulo → backend
+    const { error } = await signIn(email, password)
+    if (!error) {
+      // Actualizar el estado del contexto tras login exitoso
+      const token = getAccessToken()
+      if (token) {
+        const { data: { session: sess } } = await supabase.auth.getSession()
+        if (sess) setSession(sess)
+        startRefreshTimer()
+        await fetchMerchantUser(token)
+      }
+    }
     return { error }
   }
 
+  // ── contextSignOut ───────────────────────────────────────────────────────
   async function contextSignOut(): Promise<void> {
-    await callBackendLogout()
-    await supabase.auth.signOut()
+    await signOut()
     setMerchantUser(null)
-    navigate({ to: '/login', replace: true })
+    setSession(null)
   }
 
   const merchantPartner = merchantUser?.merchant_partners ?? null
