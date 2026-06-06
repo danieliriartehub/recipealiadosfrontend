@@ -1,6 +1,10 @@
 /**
  * Cliente HTTP para el backend RECIPE desplegado en Railway (FastAPI).
  * Base URL configurada mediante VITE_API_URL en variables de entorno.
+ *
+ * SEGURIDAD: todas las peticiones usan `credentials: 'include'` para que
+ * el navegador adjunte automáticamente la cookie HttpOnly que contiene
+ * el refresh_token — sin que JavaScript tenga acceso a su valor.
  */
 
 const API_URL = import.meta.env.VITE_API_URL ?? ''
@@ -19,11 +23,12 @@ export interface BackendUser {
 }
 
 export interface BackendSession {
+  /** access_token JWT — se mantiene solo en memoria (nunca en localStorage) */
   access_token: string
-  refresh_token: string
   token_type: string
   expires_in: number
   user: BackendUser
+  // NOTA: refresh_token ya NO está en el body — viaja solo en cookie HttpOnly
 }
 
 export interface LoginResponse {
@@ -33,6 +38,11 @@ export interface LoginResponse {
 export interface RegisterResponse {
   needs_confirmation: boolean
   session: BackendSession | null
+}
+
+export interface RefreshResponse {
+  access_token: string
+  expires_in: number
 }
 
 export interface MeResponse {
@@ -50,6 +60,9 @@ export interface MeResponse {
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const { headers: optHeaders, ...restOptions } = options
   const res = await fetch(`${API_URL}${path}`, {
+    // credentials: 'include' es fundamental para que la cookie HttpOnly
+    // del refresh_token se adjunte automáticamente en peticiones cross-origin
+    credentials: 'include',
     ...restOptions,
     headers: {
       'Content-Type': 'application/json',

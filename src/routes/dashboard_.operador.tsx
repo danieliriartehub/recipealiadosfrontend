@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { CheckCircle2, LogOut } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { signOut } from '@/lib/auth'
+import { signOut, getAccessToken } from '@/lib/auth'
+
 import {
   validateQrForOperator,
   createDeliverySession,
@@ -53,17 +53,17 @@ function OperadorDashboard() {
   const [error, setError] = useState<string | null>(null)
   const [validator, setValidator] = useState<ValidatorInfo | null>(null)
 
-  // ── Inicializar sesión al montar ──────────────────────────────
+  // ── Inicializar sesión al montar ────────────────────────────────
   useEffect(() => {
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      const token = getAccessToken()
+      if (!token) {
         navigate({ to: '/login/operador', replace: true })
         return
       }
       let v;
       try {
-        v = await backendApi.withToken(session.access_token).get<ValidatorInfo>('/api/v1/aliados/operator/me')
+        v = await backendApi.withToken(token).get<ValidatorInfo>('/api/v1/aliados/operator/me')
       } catch (e) {
         v = null
       }
@@ -78,6 +78,7 @@ function OperadorDashboard() {
     }
     init()
   }, [])
+
 
   // ── Logout por inactividad (5 min) ────────────────────────────
   useEffect(() => {
