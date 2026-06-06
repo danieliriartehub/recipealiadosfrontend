@@ -30,10 +30,7 @@ function Landing() {
           </Link>
           <nav className="flex items-center gap-2">
             <Link to="/login">
-              <Button variant="ghost">Iniciar sesión</Button>
-            </Link>
-            <Link to="/login">
-              <Button>Ingresar</Button>
+              <Button>Iniciar sesión</Button>
             </Link>
           </nav>
         </div>
