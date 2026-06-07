@@ -168,9 +168,17 @@ function ProductsPage() {
   };
 
   const onSubmit = (data: ProductFormValues) => {
+    const payload = { ...data };
+    // Evitar Error 500: PostgREST rechaza payloads Base64 muy pesados.
+    // Aquí es donde deberías implementar la subida a Supabase Storage y obtener la URL.
+    if (payload.image_url && payload.image_url.startsWith("data:image")) {
+      toast.info("Subida a Storage pendiente de implementar. Se enviará una URL de demostración.");
+      payload.image_url = "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=800&q=80";
+    }
+
     if (editing) {
       updateProduct.mutate(
-        { id: editing.id, data },
+        { id: editing.id, data: payload },
         {
           onSuccess: () => {
             toast.success("Producto actualizado");
@@ -180,7 +188,7 @@ function ProductsPage() {
         }
       );
     } else {
-      createProduct.mutate(data, {
+      createProduct.mutate(payload, {
         onSuccess: () => {
           toast.success("Producto publicado");
           setOpen(false);
