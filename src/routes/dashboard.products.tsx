@@ -21,7 +21,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // 1. Zod Schema
 const productSchema = z.object({
-  image: z.string().optional(),
+  image_url: z.string().optional(),
   name: z.string().min(1, "El nombre es requerido"),
   description: z.string().min(1, "La descripción es requerida"),
   points: z.coerce.number().min(1, "Debe ser al menos 1 punto"),
@@ -60,23 +60,26 @@ function useProductsHooks(aliado_id?: string) {
 
   const useGetProducts = () => useQuery({
     queryKey: ['products', aliado_id],
-    queryFn: () => fetchWithAuth(`/api/v1/aliados/${aliado_id}/products`) as Promise<Product[]>,
+    queryFn: () => fetchWithAuth(`/api/v1/aliados/products/${aliado_id}`) as Promise<Product[]>,
     enabled: !!aliado_id,
   });
 
   const useCreateProduct = () => useMutation({
     mutationFn: (data: ProductFormValues) =>
-      fetchWithAuth(`/api/v1/aliados/${aliado_id}/products`, {
+      fetchWithAuth(`/api/v1/aliados/products`, {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          merchant_partner_id: aliado_id
+        }),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', aliado_id] }),
   });
 
   const useUpdateProduct = () => useMutation({
     mutationFn: ({ id, data }: { id: string; data: ProductFormValues }) =>
-      fetchWithAuth(`/api/v1/aliados/${aliado_id}/products/${id}`, {
-        method: 'PUT',
+      fetchWithAuth(`/api/v1/aliados/products/${id}`, {
+        method: 'PATCH',
         body: JSON.stringify(data),
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', aliado_id] }),
@@ -84,7 +87,7 @@ function useProductsHooks(aliado_id?: string) {
 
   const useDeleteProduct = () => useMutation({
     mutationFn: (id: string) =>
-      fetchWithAuth(`/api/v1/aliados/${aliado_id}/products/${id}`, {
+      fetchWithAuth(`/api/v1/aliados/products/${id}`, {
         method: 'DELETE',
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', aliado_id] }),
@@ -127,7 +130,7 @@ function ProductsPage() {
       description: "",
       points: 100,
       stock: 10,
-      image: "",
+      image_url: "",
       category: "Hogar",
     },
   });
@@ -139,7 +142,7 @@ function ProductsPage() {
       description: "",
       points: 100,
       stock: 10,
-      image: "",
+      image_url: "",
       category: "Hogar",
     });
     setOpen(true);
@@ -152,7 +155,7 @@ function ProductsPage() {
       description: p.description,
       points: p.points,
       stock: p.stock,
-      image: p.image || "",
+      image_url: p.image_url || "",
       category: p.category,
     });
     setOpen(true);
@@ -161,7 +164,7 @@ function ProductsPage() {
   const onImage = async (file?: File) => {
     if (!file) return;
     const url = await fileToDataUrl(file);
-    form.setValue("image", url);
+    form.setValue("image_url", url);
   };
 
   const onSubmit = (data: ProductFormValues) => {
@@ -244,7 +247,7 @@ function ProductsPage() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
             <Controller
               control={form.control}
-              name="image"
+              name="image_url"
               render={({ field }) => (
                 <ImagePicker
                   image={field.value || ""}
@@ -387,8 +390,8 @@ function ProductCard({
   return (
     <div className="group bg-card border border-border rounded-2xl overflow-hidden shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-card)] hover:-translate-y-0.5 transition-all">
       <div className="aspect-video bg-muted relative overflow-hidden">
-        {p.image ? (
-          <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+        {p.image_url ? (
+          <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-primary/10">
             <Leaf className="w-10 h-10 text-primary/60" />
