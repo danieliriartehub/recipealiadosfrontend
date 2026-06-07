@@ -152,7 +152,7 @@ interface MerchantAuthContextValue {
   merchantUser: MerchantUser | null
   merchantPartner: MerchantPartner | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>
+  signIn: (email: string, password: string) => Promise<{ role: UserRole; error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -264,8 +264,8 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // ── contextSignIn ────────────────────────────────────────────────────────
-  async function contextSignIn(email: string, password: string): Promise<{ error: string | null }> {
-    const { error } = await signIn(email, password)
+  async function contextSignIn(email: string, password: string): Promise<{ role: UserRole; error: string | null }> {
+    const { role, error } = await signIn(email, password)
     if (!error) {
       // Actualizar el estado del contexto tras login exitoso
       const token = getAccessToken()
@@ -276,7 +276,7 @@ export function MerchantAuthProvider({ children }: { children: ReactNode }) {
         await fetchMerchantUser(token)
       }
     }
-    return { error }
+    return { role, error }
   }
 
   // ── contextSignOut ───────────────────────────────────────────────────────

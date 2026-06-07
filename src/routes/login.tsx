@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signIn } from "@/lib/auth";
+import { useMerchantAuth } from "@/lib/auth";
 import { Eye, EyeOff, Loader2, Recycle, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -15,6 +15,7 @@ const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { signIn } = useMerchantAuth();
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [password, setPassword] = useState("");
