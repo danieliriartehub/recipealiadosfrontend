@@ -4,7 +4,7 @@ import { signIn, signOut, getUserRole, getAccessToken } from '@/lib/auth'
 import { Eye, EyeOff, ShieldCheck, ArrowLeft } from 'lucide-react'
 
 
-export const Route = createFileRoute('/login/operador')({
+export const Route = createFileRoute('/login_/operador')({
   component: OperadorLogin,
 })
 
@@ -134,6 +134,7 @@ function OperadorLogin() {
                 placeholder="operador@usil.edu.pe"
                 autoComplete="email"
                 disabled={isBlocked}
+                maxLength={35}
                 className="w-full h-14 rounded-xl border border-gray-200 px-4 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
               />
             </div>
@@ -148,7 +149,7 @@ function OperadorLogin() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value.replace(/[<>'"`;\\]/g, ''))}
-                  maxLength={72}
+                  maxLength={20}
                   autoComplete="current-password"
                   disabled={isBlocked}
                   className="w-full h-14 rounded-xl border border-gray-200 px-4 pr-12 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
