@@ -94,6 +94,7 @@ function LoginPage() {
                 );
               }}
               disabled={!!blockedUntil}
+              maxLength={35}
               required
             />
           </Field>
@@ -111,7 +112,7 @@ function LoginPage() {
               onChange={(e) =>
                 setPassword(e.target.value.replace(/[<>'"`;\\]/g, ""))
               }
-              maxLength={72}
+              maxLength={20}
               autoComplete="current-password"
               disabled={!!blockedUntil}
               className="pr-10"
