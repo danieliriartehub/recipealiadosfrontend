@@ -239,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPreviewRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/landing-general': {
+      id: '/landing-general'
+      path: '/landing-general'
+      fullPath: '/landing-general'
+      preLoaderRoute: typeof LandingGeneralRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
