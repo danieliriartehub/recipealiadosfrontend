@@ -59,15 +59,17 @@ export interface MeResponse {
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const { headers: optHeaders, ...restOptions } = options
+  const isFormData = restOptions.body instanceof FormData
+  const headers: Record<string, string> = { ...(optHeaders as Record<string, string> ?? {}) }
+  
+  if (!isFormData && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
-    // credentials: 'include' es fundamental para que la cookie HttpOnly
-    // del refresh_token se adjunte automáticamente en peticiones cross-origin
     credentials: 'include',
     ...restOptions,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(optHeaders ?? {}),
-    },
+    headers,
   })
 
   if (res.status === 204) return undefined as T
@@ -121,7 +123,15 @@ export const backendApi = {
     apiFetch<T>(path, {
       method: 'POST',
       headers: authHeaders(token),
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body !== undefined && !(body instanceof FormData) ? JSON.stringify(body) : (body as any),
+    }),
+
+  /** POST FormData con Bearer token */
+  postFormAuth: <T>(path: string, token: string, formData: FormData): Promise<T> =>
+    apiFetch<T>(path, {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: formData,
     }),
 
   /** PATCH con Bearer token */
@@ -152,6 +162,7 @@ export const backendApi = {
     return {
       get: <T>(path: string) => backendApi.getAuth<T>(path, token),
       post: <T>(path: string, body?: unknown) => backendApi.postAuth<T>(path, token, body),
+      postForm: <T>(path: string, formData: FormData) => backendApi.postFormAuth<T>(path, token, formData),
       patch: <T>(path: string, body?: unknown) => backendApi.patchAuth<T>(path, token, body),
       delete: <T>(path: string) => backendApi.deleteAuth<T>(path, token),
     }
