@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Recipe — Recicla en USIL y obtén recompensas" },
+      { title: "ReciPe - USIL sostenible" },
       {
         name: "description",
         content:
@@ -51,7 +51,7 @@ const PLATFORMS = [
     name: "App RECIPE",
     description: "La app principal para ubicar centros, registrar tu reciclaje con QR y canjear tus recompensas.",
     webUrl: "https://recipefrontend-phi.vercel.app/",
-    apkUrl: "https://github.com/danteleilahub/recipefrontend/releases/download/App/app-release.apk", // Enlace de descarga (puede actualizarse luego)
+    apkUrl: "https://github.com/danieliriartehub/recipefrontend/releases/download/App/app-recipe.apk", // Enlace de descarga (puede actualizarse luego)
     color: "from-emerald-500 to-teal-600",
     bgSoft: "bg-emerald-50/50 border-emerald-200",
     tagColor: "bg-emerald-100 text-emerald-700",
@@ -63,7 +63,7 @@ const PLATFORMS = [
     name: "Portal Aliados",
     description: "Gestiona tu marca, valida entregas y ofrece productos al catálogo de recompensas de la comunidad USIL.",
     webUrl: "/landing-aliados",
-    apkUrl: "https://github.com/danteleilahub/recipealiadosfrontend/releases/download/App/app-release.apk",
+    apkUrl: "https://github.com/danieliriartehub/recipeAliadosfrontend/releases/download/App/app-recipealiados.apk",
     color: "from-blue-500 to-indigo-600",
     bgSoft: "bg-blue-50/50 border-blue-200",
     tagColor: "bg-blue-100 text-blue-700",
@@ -71,7 +71,13 @@ const PLATFORMS = [
 ];
 
 // ─── Componente principal ──────────────────────────────────────────────────────
+import { useEffect } from "react";
+
 function LandingGeneral() {
+  useEffect(() => {
+    document.title = "RECIPE - USIL sostenible";
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
       {/* ── Nav ── */}
