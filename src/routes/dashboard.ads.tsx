@@ -16,8 +16,7 @@ export const Route = createFileRoute('/dashboard/ads')({
 })
 
 function DashboardAds() {
-  const { session } = useMerchantAuth()
-  const { company } = usePortal()
+  const { session, merchantPartner } = useMerchantAuth()
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -40,7 +39,7 @@ function DashboardAds() {
   }
 
   const handleUpload = async () => {
-    if (!selectedImage || !session?.access_token || !company.id) return
+    if (!selectedImage || !session?.access_token || !merchantPartner?.id) return
 
     setIsUploading(true)
     try {
@@ -83,7 +82,7 @@ function DashboardAds() {
         try {
           const api = backendApi.withToken(session.access_token)
           // Asume que route es /api/v1/aliados/partner/{partner_id}/banner
-          const res = await api.postForm<{ banner_url: string }>(`/api/v1/aliados/partner/${company.id}/banner`, formData)
+          const res = await api.postForm<{ banner_url: string }>(`/api/v1/aliados/partner/${merchantPartner.id}/banner`, formData)
           
           toast.success('¡Banner actualizado exitosamente!')
           setSelectedImage(res.banner_url)
