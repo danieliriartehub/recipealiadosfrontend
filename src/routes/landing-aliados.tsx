@@ -5,7 +5,7 @@ import { Leaf, Package, Smartphone, Sparkles, ArrowRight, Recycle, Globe } from 
 export const Route = createFileRoute("/landing-aliados")({
   head: () => ({
     meta: [
-      { title: "Portal de Aliados — Recipe" },
+      { title: "ReciPe - Portal Aliados USIL" },
       {
         name: "description",
         content:
@@ -16,7 +16,13 @@ export const Route = createFileRoute("/landing-aliados")({
   component: Landing,
 });
 
+import { useEffect } from "react";
+
 function Landing() {
+  useEffect(() => {
+    document.title = "RECIPE - Portal Aliados USIL";
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
@@ -57,18 +63,7 @@ function Landing() {
               los puntos requeridos y llega a estudiantes, docentes y staff que
               ya reciclan en el campus.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/login">
-                <Button size="lg" className="gap-2">
-                  Comenzar ahora <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
-              <Link to="/login">
-                <Button size="lg" variant="outline">
-                  Ya tengo cuenta
-                </Button>
-              </Link>
-            </div>
+
             <div className="mt-8 flex gap-6 text-sm text-muted-foreground">
               <div><strong className="text-foreground">+8k</strong> miembros USIL</div>
               <div><strong className="text-foreground">120</strong> aliados</div>
