@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LandingGeneralRouteImport } from './routes/landing-general'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -20,6 +21,11 @@ import { Route as DashboardProfileRouteImport } from './routes/dashboard.profile
 import { Route as DashboardProductsRouteImport } from './routes/dashboard.products'
 import { Route as DashboardPreviewRouteImport } from './routes/dashboard.preview'
 
+const LandingGeneralRoute = LandingGeneralRouteImport.update({
+  id: '/landing-general',
+  path: '/landing-general',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/landing-general': typeof LandingGeneralRoute
   '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/landing-general': typeof LandingGeneralRoute
   '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/landing-general': typeof LandingGeneralRoute
   '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/landing-general'
     | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/landing-general'
     | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/register'
+    | '/landing-general'
     | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
@@ -150,6 +162,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  LandingGeneralRoute: typeof LandingGeneralRoute
   DashboardOperadorRoute: typeof DashboardOperadorRoute
   LoginOperadorRoute: typeof LoginOperadorRoute
 }
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPreviewRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/landing-general': {
+      id: '/landing-general'
+      path: '/landing-general'
+      fullPath: '/landing-general'
+      preLoaderRoute: typeof LandingGeneralRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -252,6 +272,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  LandingGeneralRoute: LandingGeneralRoute,
   DashboardOperadorRoute: DashboardOperadorRoute,
   LoginOperadorRoute: LoginOperadorRoute,
 }
