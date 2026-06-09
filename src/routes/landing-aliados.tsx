@@ -75,21 +75,7 @@ function Landing() {
               <div><strong className="text-foreground">5</strong> sedes activas</div>
             </div>
 
-            {/* Banner: ver ecosistema completo */}
-            <Link to="/" className="mt-6 block">
-              <div className="group flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-white/70 px-5 py-4 shadow-[var(--shadow-soft)] backdrop-blur transition-all hover:border-primary/60 hover:bg-white hover:shadow-[var(--shadow-card)]">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Globe className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-foreground">Ecosistema Recipe</p>
-                    <p className="text-xs text-muted-foreground">App usuarios · Portal aliados · Descarga móvil</p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 shrink-0 text-primary transition-transform group-hover:translate-x-1" />
-              </div>
-            </Link>
+
           </div>
           <div className="relative">
             <div className="absolute -inset-8 bg-primary/10 blur-3xl rounded-full" />
