@@ -3,8 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, Send, X, Bot, User, CheckCircle2, Leaf, Coffee, Store, Package, Shirt } from "lucide-react";
+import { UploadCloud, Send, X, Bot, User, CheckCircle2, Leaf, Coffee, Store, Package, Shirt, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getAccessToken } from "@/lib/auth";
+
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 export type ChatProductPayload = {
   name: string;
@@ -82,8 +85,35 @@ export function ChatbotProductCreator({
         addUserMessage(value);
         setPayload((p) => ({ ...p, name: value }));
         setInputValue("");
-        setStep("description");
-        addBotMessage(`¡Excelente nombre! 🌟 Ahora cuéntame un poco más. Escribe una descripción atractiva para ${value}.`, 600);
+        
+        setIsTyping(true);
+        addBotMessage("¡Excelente nombre! 🌟 Déjame usar la IA de RECIPE para crear una descripción mágica...", 0);
+        
+        (async () => {
+          try {
+            const token = getAccessToken();
+            const res = await fetch(`${API_URL}/api/v1/aliados/generate-product-details`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
+              body: JSON.stringify({ name: value })
+            });
+            if (!res.ok) throw new Error("Error IA");
+            const data = await res.json();
+            
+            setPayload((p) => ({ ...p, description: data.description, category: data.category }));
+            
+            setStep("points");
+            addBotMessage(`¡Hecho! ✨ Le asigné la categoría "${data.category}" y esta descripción:\n\n«${data.description}»\n\n(Podrás editarlo luego si deseas). Ahora, ¿cuántos Puntos ECO costará?`, 600);
+          } catch (e) {
+            setStep("description");
+            addBotMessage(`Hubo un problemita con la IA 😅. Escribe tú mismo una descripción atractiva para ${value}.`, 600);
+          } finally {
+            setIsTyping(false);
+          }
+        })();
         break;
         
       case "description":
