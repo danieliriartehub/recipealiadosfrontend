@@ -18,6 +18,7 @@ import { z } from "zod";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ChatbotProductCreator, type ChatProductPayload } from "@/components/ChatbotProductCreator";
 
 // 1. Zod Schema
 const productSchema = z.object({
@@ -121,6 +122,7 @@ function ProductsPage() {
   const deleteProduct = useDeleteProduct();
 
   const [open, setOpen] = useState(false);
+  const [openChatbot, setOpenChatbot] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
 
   const form = useForm<ProductFormValues>({
@@ -136,16 +138,7 @@ function ProductsPage() {
   });
 
   const openNew = () => {
-    setEditing(null);
-    form.reset({
-      name: "",
-      description: "",
-      points: 100,
-      stock: 10,
-      image_url: "",
-      category: "Hogar",
-    });
-    setOpen(true);
+    setOpenChatbot(true);
   };
 
   const openEdit = (p: Product) => {
@@ -169,8 +162,6 @@ function ProductsPage() {
 
   const onSubmit = (data: ProductFormValues) => {
     const payload = { ...data };
-    // Evitar Error 500: PostgREST rechaza payloads Base64 muy pesados.
-    // Aquí es donde deberías implementar la subida a Supabase Storage y obtener la URL.
     if (payload.image_url && payload.image_url.startsWith("data:image")) {
       toast.info("Subida a Storage pendiente de implementar. Se enviará una URL de demostración.");
       payload.image_url = "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=800&q=80";
@@ -187,15 +178,23 @@ function ProductsPage() {
           onError: (e) => toast.error(e.message || "Error al actualizar"),
         }
       );
-    } else {
-      createProduct.mutate(payload, {
-        onSuccess: () => {
-          toast.success("Producto publicado");
-          setOpen(false);
-        },
-        onError: (e) => toast.error(e.message || "Error al publicar"),
-      });
     }
+  };
+
+  const handleChatbotSubmit = (data: ChatProductPayload) => {
+    const payload = { ...data };
+    if (payload.image_url && payload.image_url.startsWith("data:image")) {
+      toast.info("Subida a Storage pendiente de implementar. Se enviará una URL de demostración.");
+      payload.image_url = "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=800&q=80";
+    }
+
+    createProduct.mutate(payload, {
+      onSuccess: () => {
+        toast.success("Producto publicado con éxito");
+        setOpenChatbot(false);
+      },
+      onError: (e) => toast.error(e.message || "Error al publicar"),
+    });
   };
 
   const handleDelete = (id: string) => {
@@ -246,6 +245,19 @@ function ProductsPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={openChatbot} onOpenChange={setOpenChatbot}>
+        <DialogContent className="max-w-md p-0 overflow-hidden bg-background border-0 shadow-2xl [&>button]:hidden sm:rounded-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Asistente de Catálogo</DialogTitle>
+          </DialogHeader>
+          <ChatbotProductCreator 
+            onComplete={handleChatbotSubmit} 
+            onCancel={() => setOpenChatbot(false)} 
+            isPending={createProduct.isPending} 
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
@@ -329,7 +341,7 @@ function ProductsPage() {
               </Button>
               <Button type="submit" disabled={isPending} className="bg-[#008000] hover:bg-[#008000]/90 text-white">
                 {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {editing ? "Guardar cambios" : "Publicar"}
+                Guardar cambios
               </Button>
             </DialogFooter>
           </form>
