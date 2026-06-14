@@ -233,7 +233,8 @@ function ProfilePage() {
                     <input
                       type="file"
                       accept="image/*"
-                      className="hidden"
+                      className="sr-only"
+                      onClick={(e) => ((e.target as HTMLInputElement).value = "")}
                       onChange={(e) => onUpload("logo_url", e.target.files?.[0])}
                     />
                   </label>
@@ -376,7 +377,8 @@ function UploadButton({ onPick, label }: { onPick: (f?: File) => void; label: st
       <input
         type="file"
         accept="image/*"
-        className="hidden"
+        className="sr-only"
+        onClick={(e) => ((e.target as HTMLInputElement).value = "")}
         onChange={(e) => onPick(e.target.files?.[0])}
       />
     </label>
