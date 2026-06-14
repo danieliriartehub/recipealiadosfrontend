@@ -255,8 +255,9 @@ function ProfilePage() {
                   <div className="flex items-center gap-2">
                     <input
                       type="color"
-                      {...form.register("brand_color")}
-                      className="w-10 h-10 rounded-lg border border-border bg-transparent cursor-pointer"
+                      value={currentValues.brand_color || "#000000"}
+                      onChange={(e) => form.setValue("brand_color", e.target.value, { shouldDirty: true, shouldValidate: true })}
+                      className="w-10 h-10 rounded-lg border border-border bg-transparent cursor-pointer shrink-0"
                     />
                     <Input
                       {...form.register("brand_color")}
