@@ -127,7 +127,9 @@ function ProfilePage() {
       toast.success("Perfil actualizado correctamente");
     },
     onError: (error: any) => {
-      if (error.response?.data?.detail) {
+      if (error instanceof Error) {
+        toast.error(`Backend: ${error.message}`);
+      } else if (error?.response?.data?.detail) {
         toast.error(error.response.data.detail);
       } else {
         toast.error("Ocurrió un error al guardar el perfil.");
