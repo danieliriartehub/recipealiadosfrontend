@@ -127,16 +127,15 @@ export async function signOut(): Promise<void> {
 
 interface MerchantPartner {
   id: string
-  name: string
+  business_name: string
   tagline: string | null
-  description: string | null
+  profile_description: string | null
   logo_url: string | null
-  cover_url: string | null
+  banner_url: string | null
   brand_color: string | null
   category: string | null
-  email: string | null
-  website: string | null
-  banner_url: string | null
+  contact_email: string | null
+  website_url: string | null
   created_at: string
 }
 

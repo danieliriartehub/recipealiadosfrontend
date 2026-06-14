@@ -30,7 +30,6 @@ const nav: { to: string; label: string; icon: typeof LayoutDashboard; exact?: bo
   { to: "/dashboard/products", label: "Productos", icon: Package },
   { to: "/dashboard/profile", label: "Perfil de marca", icon: Store },
   { to: "/dashboard/ads", label: "Publicidad", icon: Megaphone },
-  { to: "/dashboard/preview", label: "Preview móvil", icon: Smartphone },
 ];
 
 function DashboardLayout() {

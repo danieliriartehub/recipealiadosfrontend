@@ -20,7 +20,6 @@ import { Route as DashboardOperadorRouteImport } from './routes/dashboard_.opera
 import { Route as DashboardRedemptionsRouteImport } from './routes/dashboard.redemptions'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard.profile'
 import { Route as DashboardProductsRouteImport } from './routes/dashboard.products'
-import { Route as DashboardPreviewRouteImport } from './routes/dashboard.preview'
 import { Route as DashboardAdsRouteImport } from './routes/dashboard.ads'
 
 const RegisterRoute = RegisterRouteImport.update({
@@ -78,11 +77,6 @@ const DashboardProductsRoute = DashboardProductsRouteImport.update({
   path: '/products',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardPreviewRoute = DashboardPreviewRouteImport.update({
-  id: '/preview',
-  path: '/preview',
-  getParentRoute: () => DashboardRoute,
-} as any)
 const DashboardAdsRoute = DashboardAdsRouteImport.update({
   id: '/ads',
   path: '/ads',
@@ -96,7 +90,6 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/dashboard/ads': typeof DashboardAdsRoute
-  '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/redemptions': typeof DashboardRedemptionsRoute
@@ -110,7 +103,6 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/dashboard/ads': typeof DashboardAdsRoute
-  '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/redemptions': typeof DashboardRedemptionsRoute
@@ -126,7 +118,6 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/dashboard/ads': typeof DashboardAdsRoute
-  '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/redemptions': typeof DashboardRedemptionsRoute
@@ -143,7 +134,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/dashboard/ads'
-    | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
     | '/dashboard/redemptions'
@@ -157,7 +147,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/dashboard/ads'
-    | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
     | '/dashboard/redemptions'
@@ -172,7 +161,6 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/dashboard/ads'
-    | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
     | '/dashboard/redemptions'
@@ -270,13 +258,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardProductsRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/dashboard/preview': {
-      id: '/dashboard/preview'
-      path: '/preview'
-      fullPath: '/dashboard/preview'
-      preLoaderRoute: typeof DashboardPreviewRouteImport
-      parentRoute: typeof DashboardRoute
-    }
     '/dashboard/ads': {
       id: '/dashboard/ads'
       path: '/ads'
@@ -289,7 +270,6 @@ declare module '@tanstack/react-router' {
 
 interface DashboardRouteChildren {
   DashboardAdsRoute: typeof DashboardAdsRoute
-  DashboardPreviewRoute: typeof DashboardPreviewRoute
   DashboardProductsRoute: typeof DashboardProductsRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardRedemptionsRoute: typeof DashboardRedemptionsRoute
@@ -298,7 +278,6 @@ interface DashboardRouteChildren {
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAdsRoute: DashboardAdsRoute,
-  DashboardPreviewRoute: DashboardPreviewRoute,
   DashboardProductsRoute: DashboardProductsRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardRedemptionsRoute: DashboardRedemptionsRoute,

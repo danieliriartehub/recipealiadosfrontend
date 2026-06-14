@@ -52,11 +52,15 @@ export async function removeMerchantProduct(id: string) {
 }
 
 export async function updateMerchantPartner(
-  id: string,
   data: Record<string, unknown>,
 ) {
   const token = await getToken()
-  return backendApi.withToken(token).patch<unknown>(`/api/v1/aliados/partner/${id}`, data)
+  return backendApi.withToken(token).patch<unknown>(`/api/v1/aliados/partner/me`, data)
+}
+
+export async function getMerchantMe() {
+  const token = await getToken()
+  return backendApi.withToken(token).get<any>('/api/v1/aliados/me')
 }
 
 // ── Operador / Validador ──────────────────────────────────────────
