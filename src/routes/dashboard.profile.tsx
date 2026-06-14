@@ -138,7 +138,20 @@ function ProfilePage() {
   });
 
   const onSubmit = (values: ProfileFormValues) => {
-    mutation.mutate(values);
+    const dirtyFields = form.formState.dirtyFields;
+    const changedValues = Object.keys(dirtyFields).reduce((acc, key) => {
+      const fieldKey = key as keyof ProfileFormValues;
+      if (dirtyFields[fieldKey]) {
+        acc[fieldKey] = values[fieldKey];
+      }
+      return acc;
+    }, {} as Record<string, any>);
+
+    // Si no hay cambios, no hacemos nada
+    if (Object.keys(changedValues).length === 0) return;
+
+    // mutation espera ProfileFormValues en TypeScript pero el backend acepta un objeto parcial (Record<string, unknown>)
+    mutation.mutate(changedValues as ProfileFormValues);
   };
 
   const onUpload = async (key: "logo_url" | "banner_url", file?: File) => {
