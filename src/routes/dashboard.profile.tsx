@@ -228,7 +228,7 @@ function ProfilePage() {
                   ) : (
                     <ImageIcon className="w-7 h-7 text-muted-foreground" />
                   )}
-                  <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                  <label className="absolute inset-0 z-10 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
                     <Upload className="w-5 h-5 text-white" />
                     <input
                       type="file"
@@ -371,7 +371,7 @@ function Row({ label, error, children }: { label: string; error?: string; childr
 
 function UploadButton({ onPick, label }: { onPick: (f?: File) => void; label: string }) {
   return (
-    <label className="absolute right-3 bottom-3 px-3 py-1.5 rounded-full bg-background/90 backdrop-blur border border-border text-xs font-medium cursor-pointer hover:bg-background flex items-center gap-1.5 shadow-sm transition-colors">
+    <label className="absolute right-3 bottom-3 z-10 px-3 py-1.5 rounded-full bg-background/90 backdrop-blur border border-border text-xs font-medium cursor-pointer hover:bg-background flex items-center gap-1.5 shadow-sm transition-colors">
       <Upload className="w-3.5 h-3.5" />
       {label}
       <input
