@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as LoginOperadorRouteImport } from './routes/login_.operador'
 import { Route as DashboardOperadorRouteImport } from './routes/dashboard_.operador'
+import { Route as DashboardRedemptionsRouteImport } from './routes/dashboard.redemptions'
 import { Route as DashboardProfileRouteImport } from './routes/dashboard.profile'
 import { Route as DashboardProductsRouteImport } from './routes/dashboard.products'
 import { Route as DashboardPreviewRouteImport } from './routes/dashboard.preview'
@@ -62,6 +63,11 @@ const DashboardOperadorRoute = DashboardOperadorRouteImport.update({
   path: '/dashboard/operador',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRedemptionsRoute = DashboardRedemptionsRouteImport.update({
+  id: '/redemptions',
+  path: '/redemptions',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardProfileRoute = DashboardProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
+  '/dashboard/redemptions': typeof DashboardRedemptionsRoute
   '/dashboard/operador': typeof DashboardOperadorRoute
   '/login/operador': typeof LoginOperadorRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
+  '/dashboard/redemptions': typeof DashboardRedemptionsRoute
   '/dashboard/operador': typeof DashboardOperadorRoute
   '/login/operador': typeof LoginOperadorRoute
   '/dashboard': typeof DashboardIndexRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/dashboard/preview': typeof DashboardPreviewRoute
   '/dashboard/products': typeof DashboardProductsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
+  '/dashboard/redemptions': typeof DashboardRedemptionsRoute
   '/dashboard_/operador': typeof DashboardOperadorRoute
   '/login_/operador': typeof LoginOperadorRoute
   '/dashboard/': typeof DashboardIndexRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
+    | '/dashboard/redemptions'
     | '/dashboard/operador'
     | '/login/operador'
     | '/dashboard/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
+    | '/dashboard/redemptions'
     | '/dashboard/operador'
     | '/login/operador'
     | '/dashboard'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/dashboard/preview'
     | '/dashboard/products'
     | '/dashboard/profile'
+    | '/dashboard/redemptions'
     | '/dashboard_/operador'
     | '/login_/operador'
     | '/dashboard/'
@@ -237,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOperadorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard/redemptions': {
+      id: '/dashboard/redemptions'
+      path: '/redemptions'
+      fullPath: '/dashboard/redemptions'
+      preLoaderRoute: typeof DashboardRedemptionsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/dashboard/profile': {
       id: '/dashboard/profile'
       path: '/profile'
@@ -273,6 +292,7 @@ interface DashboardRouteChildren {
   DashboardPreviewRoute: typeof DashboardPreviewRoute
   DashboardProductsRoute: typeof DashboardProductsRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
+  DashboardRedemptionsRoute: typeof DashboardRedemptionsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
@@ -281,6 +301,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPreviewRoute: DashboardPreviewRoute,
   DashboardProductsRoute: DashboardProductsRoute,
   DashboardProfileRoute: DashboardProfileRoute,
+  DashboardRedemptionsRoute: DashboardRedemptionsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 

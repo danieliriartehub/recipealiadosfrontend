@@ -175,3 +175,29 @@ export async function registerRecyclingDelivery(params: {
     kg: params.kg,
   })
 }
+
+// ── Cupones (Operador de Aliado) ──────────────────────────────────
+
+export interface CouponValidateResponse {
+  redemption_id: string
+  product_id: string
+  product_name: string
+  partner_name: string
+  points_spent: number
+  redemption_code: string
+  status: string
+  expires_at: string | null
+}
+
+export async function validateCoupon(code: string) {
+  const token = await getToken()
+  return backendApi.withToken(token).get<CouponValidateResponse>(`/api/v1/coupons/validate/${code}`)
+}
+
+export async function redeemCoupon(redemptionId: string) {
+  const token = await getToken()
+  return backendApi.withToken(token).post<{ success: boolean; message: string }>('/api/v1/coupons/redeem', {
+    redemption_id: redemptionId,
+  })
+}
+
