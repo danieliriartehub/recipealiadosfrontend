@@ -27,6 +27,7 @@ const productSchema = z.object({
   description: z.string().min(1, "La descripción es requerida"),
   points: z.coerce.number().min(1, "Debe ser al menos 1 punto"),
   stock: z.coerce.number().min(0, "El stock no puede ser negativo"),
+  expiration_days: z.coerce.number().min(1, "Debe ser al menos 1 día").optional(),
   category: z.string().min(1, "La categoría es requerida"),
 });
 
@@ -132,6 +133,7 @@ function ProductsPage() {
       description: "",
       points: 100,
       stock: 10,
+      expiration_days: 30,
       image_url: "",
       category: "Hogar",
     },
@@ -148,6 +150,7 @@ function ProductsPage() {
       description: p.description,
       points: p.points,
       stock: p.stock,
+      expiration_days: p.expiration_days || 30,
       image_url: p.image_url || "",
       category: p.category,
     });
@@ -300,7 +303,7 @@ function ProductsPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="space-y-1.5">
                 <Label>Puntos</Label>
                 <Input
@@ -321,6 +324,17 @@ function ProductsPage() {
                 />
                 {form.formState.errors.stock && (
                   <p className="text-xs text-destructive">{form.formState.errors.stock.message}</p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Vigencia (Días)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  {...form.register("expiration_days")}
+                />
+                {form.formState.errors.expiration_days && (
+                  <p className="text-xs text-destructive">{form.formState.errors.expiration_days.message}</p>
                 )}
               </div>
               <div className="space-y-1.5">

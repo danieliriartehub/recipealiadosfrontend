@@ -16,9 +16,10 @@ export type ChatProductPayload = {
   stock: number;
   category: string;
   image_url: string;
+  expiration_days: number;
 };
 
-type Step = "name" | "description" | "points" | "stock" | "category" | "image" | "confirm";
+type Step = "name" | "description" | "points" | "stock" | "expiration" | "category" | "image" | "confirm";
 
 type Message = {
   id: string;
@@ -149,6 +150,21 @@ export function ChatbotProductCreator({
         }
         addUserMessage(`${stock} unidades`);
         setPayload((p) => ({ ...p, stock }));
+        setInputValue("");
+        setStep("expiration");
+        addBotMessage("¡Anotado! ⏳ ¿Cuántos días de vigencia tendrá el cupón una vez canjeado? (ej. 30 días)", 600);
+        break;
+
+      case "expiration":
+        const expiration_days = parseInt(value);
+        if (isNaN(expiration_days) || expiration_days <= 0) {
+          addUserMessage(value);
+          setInputValue("");
+          addBotMessage("Por favor ingresa un número válido (mayor a 0) para los días de expiración.", 400);
+          return;
+        }
+        addUserMessage(`${expiration_days} días`);
+        setPayload((p) => ({ ...p, expiration_days }));
         setInputValue("");
         setStep("category");
         addBotMessage("Perfecto. ¿En qué categoría encaja mejor tu producto? Puedes elegir una de estas opciones o escribir la tuya.", 600, "categories");
@@ -299,9 +315,16 @@ export function ChatbotProductCreator({
                   <h4 className="font-bold text-lg leading-tight">{payload.name}</h4>
                   <p className="text-xs text-muted-foreground mt-0.5">{payload.category}</p>
                 </div>
-                <span className="bg-accent/20 text-accent-foreground px-2 py-0.5 rounded text-xs font-bold border border-accent/30">
-                  {payload.points} pts
-                </span>
+                <div className="flex flex-col items-end">
+                  <span className="bg-accent/20 text-accent-foreground px-2 py-0.5 rounded text-xs font-bold border border-accent/30">
+                    {payload.points} pts
+                  </span>
+                  {payload.expiration_days && (
+                    <span className="text-[10px] text-muted-foreground mt-1">
+                      Expira en {payload.expiration_days} días
+                    </span>
+                  )}
+                </div>
               </div>
               <p className="text-sm mt-2 line-clamp-2 text-muted-foreground">{payload.description}</p>
               <div className="mt-3 flex gap-2">
@@ -370,12 +393,13 @@ export function ChatbotProductCreator({
                     step === "name" ? "Ej: Botella de Aluminio Ecológica..." :
                     step === "points" ? "Ej: 250" :
                     step === "stock" ? "Ej: 50" :
+                    step === "expiration" ? "Ej: 30" :
                     step === "category" ? "Escribe la categoría..." : "..."
                   }
-                  type={step === "points" || step === "stock" ? "number" : "text"}
+                  type={step === "points" || step === "stock" || step === "expiration" ? "number" : "text"}
                   className="h-12 pr-12 rounded-2xl bg-muted/50 border-muted focus-visible:ring-[#008000]/50"
                   autoFocus
-                  min={step === "points" ? 1 : step === "stock" ? 0 : undefined}
+                  min={step === "points" || step === "expiration" ? 1 : step === "stock" ? 0 : undefined}
                 />
               )}
               <Button 
